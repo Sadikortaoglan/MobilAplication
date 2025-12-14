@@ -1,0 +1,199 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
+import { apiService } from '../services/api';
+import { useLocationStore } from '../store/locationStore';
+import { usePlacesStore } from '../store/placesStore';
+import PlaceCard from '../components/PlaceCard';
+import CustomMapView from '../components/MapView';
+import LoadingIndicator from '../components/LoadingIndicator';
+import { Place } from '../types';
+import { MainTabParamList } from '../navigation/types';
+
+type NearbyScreenRouteProp = RouteProp<MainTabParamList, 'Nearby'>;
+
+export default function NearbyScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<NearbyScreenRouteProp>();
+  const { currentLocation, fetchLocation } = useLocationStore();
+  const { selectedCategory, selectedSubcategory, setPlaces } = usePlacesStore();
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const categoryId = route.params?.categoryId || selectedCategory?.id;
+
+  const { data: placesResponse, isLoading, refetch } = useQuery({
+    queryKey: ['places', currentLocation?.latitude, currentLocation?.longitude, categoryId, selectedSubcategory],
+    queryFn: async () => {
+      if (!currentLocation) {
+        await fetchLocation();
+        return null;
+      }
+      const response = await apiService.searchPlaces({
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        categoryId: categoryId ? Number(categoryId) : undefined,
+        subcategoryId: selectedSubcategory ? Number(selectedSubcategory) : undefined,
+        maxDistanceKm: 10,
+        page: 0,
+        size: 20,
+        sort: 'distance',
+      });
+      setPlaces(response.content || []);
+      return response;
+    },
+    enabled: !!currentLocation,
+  });
+
+  const places = placesResponse?.content || [];
+
+  useEffect(() => {
+    if (!currentLocation) {
+      fetchLocation();
+    }
+  }, []);
+
+  const handlePlacePress = (place: Place) => {
+    navigation.navigate('PlaceDetail', { placeId: place.id });
+  };
+
+  const handleMarkerPress = (place: Place) => {
+    navigation.navigate('PlaceDetail', { placeId: place.id });
+  };
+
+  if (isLoading && !currentLocation) {
+    return <LoadingIndicator message="Getting your location..." />;
+  }
+
+  if (!currentLocation) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Location permission required</Text>
+        <TouchableOpacity style={styles.button} onPress={fetchLocation}>
+          <Text style={styles.buttonText}>Enable Location</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.toggleContainer}>
+          <TouchableOpacity
+            style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
+            onPress={() => setViewMode('list')}
+          >
+            <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>
+              List
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleButton, viewMode === 'map' && styles.toggleButtonActive]}
+            onPress={() => setViewMode('map')}
+          >
+            <Text style={[styles.toggleText, viewMode === 'map' && styles.toggleTextActive]}>
+              Map
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {viewMode === 'list' ? (
+        <FlatList
+          data={places || []}
+          keyExtractor={(item: Place) => item.id.toString()}
+          renderItem={({ item }: { item: Place }) => (
+            <PlaceCard place={item} onPress={() => handlePlacePress(item)} />
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No places found nearby</Text>
+            </View>
+          }
+        />
+      ) : (
+        <CustomMapView
+          places={places || []}
+          currentLocation={currentLocation}
+          onMarkerPress={handleMarkerPress}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  header: {
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#007AFF',
+  },
+  toggleText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  toggleTextActive: {
+    color: '#FFF',
+  },
+  list: {
+    paddingVertical: 8,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  buttonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
+

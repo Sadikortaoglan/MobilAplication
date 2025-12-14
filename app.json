@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "FindSpot",
+    "slug": "findspot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#007AFF"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.findspot.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "FindSpot needs your location to find nearby places.",
+        "NSLocationAlwaysUsageDescription": "FindSpot needs your location to find nearby places."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#007AFF"
+      },
+      "package": "com.findspot.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "FindSpot needs your location to find nearby places."
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "http://localhost:8080"
+    }
+  }
+}
+
