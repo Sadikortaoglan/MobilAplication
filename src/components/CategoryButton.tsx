@@ -25,7 +25,6 @@ export default function CategoryButton({
       onPress={onPress}
     >
       <View style={styles.content}>
-        {category.icon && <Text style={styles.icon}>{category.icon}</Text>}
         <Text style={[styles.text, isSelected && styles.selectedText]}>
           {category.name}
         </Text>

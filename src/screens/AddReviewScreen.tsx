@@ -4,14 +4,17 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../services/api';
 import ReviewForm from '../components/ReviewForm';
+import { RootStackParamList } from '../navigation/types';
+
+type AddReviewScreenRouteProp = RouteProp<RootStackParamList, 'AddReview'>;
 
 export default function AddReviewScreen() {
   const navigation = useNavigation<any>();
-  const route = useRoute();
+  const route = useRoute<AddReviewScreenRouteProp>();
   const placeId = route.params?.placeId;
   const queryClient = useQueryClient();
 

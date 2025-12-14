@@ -8,18 +8,21 @@ import {
   TouchableOpacity,
   FlatList,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import RatingStars from '../components/RatingStars';
 import ReviewCard from '../components/ReviewCard';
 import LoadingIndicator from '../components/LoadingIndicator';
-import { Review } from '../types';
+import { Review, Photo } from '../types';
+import { RootStackParamList } from '../navigation/types';
+
+type PlaceDetailScreenRouteProp = RouteProp<RootStackParamList, 'PlaceDetail'>;
 
 export default function PlaceDetailScreen() {
   const navigation = useNavigation<any>();
-  const route = useRoute();
+  const route = useRoute<PlaceDetailScreenRouteProp>();
   const placeId = route.params?.placeId;
   const { isAuthenticated } = useAuthStore();
 
@@ -49,7 +52,7 @@ export default function PlaceDetailScreen() {
     );
   }
 
-  const coverPhoto = place.photos?.find((photo) => photo.isCover) || place.photos?.[0];
+  const coverPhoto = place.photos?.find((photo: Photo) => photo.isCover) || place.photos?.[0];
 
   return (
     <ScrollView style={styles.container}>
