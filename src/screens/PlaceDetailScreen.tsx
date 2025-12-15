@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   TouchableOpacity,
   FlatList,
   Alert,
   ActivityIndicator,
-  Dimensions,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -20,8 +20,10 @@ import { useAuthStore } from '../store/authStore';
 import RatingStars from '../components/RatingStars';
 import ReviewCard from '../components/ReviewCard';
 import LoadingIndicator from '../components/LoadingIndicator';
+import ImageCarousel from '../components/ImageCarousel';
+import MiniMapPreview from '../components/MiniMapPreview';
 import { Review, Photo } from '../types';
-import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius, shadowMd, shadowSm } from '../theme/designSystem';
 import { sanitizeErrorMessage } from '../utils/errorHandler';
 
 export default function PlaceDetailScreen() {
@@ -45,16 +47,13 @@ export default function PlaceDetailScreen() {
     retry: 2,
   });
 
-  // Check if user has already reviewed this place - ALWAYS check from backend
   const { data: userReview, isLoading: userReviewLoading, refetch: refetchUserReview } = useQuery({
     queryKey: ['userReview', placeId, user?.id],
     queryFn: () => apiService.getUserReview(Number(placeId)),
     enabled: !!placeId && isAuthenticated && !!user?.id,
     retry: 1,
-    // Refetch when placeId or user changes
   });
 
-  // Check if place is favorited
   const { data: favoritesResponse } = useQuery({
     queryKey: ['favorites'],
     queryFn: () => apiService.getFavorites(),
@@ -62,7 +61,6 @@ export default function PlaceDetailScreen() {
     retry: 1,
   });
 
-  // Check if place is visited
   const { data: visitedResponse } = useQuery({
     queryKey: ['visited'],
     queryFn: () => apiService.getVisited(),
@@ -71,17 +69,10 @@ export default function PlaceDetailScreen() {
   });
 
   const reviews = reviewsResponse?.content || [];
-  
-  // Handle both array and paginated response formats
-  const favorites = Array.isArray(favoritesResponse)
-    ? favoritesResponse
-    : favoritesResponse?.content || [];
-  const visited = Array.isArray(visitedResponse)
-    ? visitedResponse
-    : visitedResponse?.content || [];
+  const favorites = Array.isArray(favoritesResponse) ? favoritesResponse : favoritesResponse?.content || [];
+  const visited = Array.isArray(visitedResponse) ? visitedResponse : visitedResponse?.content || [];
   
   const numericPlaceId = Number(placeId);
-
   const isFavorited = favorites.some((fav: any) => {
     const favId = fav.id || fav.placeId || fav.place?.id;
     return Number(favId) === numericPlaceId;
@@ -90,18 +81,17 @@ export default function PlaceDetailScreen() {
     const visId = vis.id || vis.placeId || vis.place?.id;
     return Number(visId) === numericPlaceId;
   });
-  
-  // Review eligibility - ONLY based on backend response
   const hasUserReviewed = !!userReview;
 
-  // Reset review state when placeId or user changes
+  // Separate user review from other reviews
+  const otherReviews = reviews.filter((review: Review) => review.user.id !== user?.id);
+
   useEffect(() => {
     if (placeId && user?.id) {
       refetchUserReview();
     }
   }, [placeId, user?.id, refetchUserReview]);
 
-  // Favorite mutation
   const favoriteMutation = useMutation({
     mutationFn: async () => {
       if (isFavorited) {
@@ -118,7 +108,6 @@ export default function PlaceDetailScreen() {
     },
   });
 
-  // Visited mutation - with proper error handling
   const visitedMutation = useMutation({
     mutationFn: async () => {
       if (isVisited) {
@@ -131,14 +120,19 @@ export default function PlaceDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ['visited'] });
     },
     onError: (error: any) => {
-      // 409: zaten ziyaret edilmiş - kullanıcıya nazik mesaj göster
-      const status = error.response?.status;
-      if (status === 409) {
-        Alert.alert('Already marked', 'You have already marked this place as visited.');
-        return;
-      }
+      const message = sanitizeErrorMessage(error);
+      Alert.alert('Error', message);
+    },
+  });
 
-      // Diğer hatalar için sanitize edilmiş mesaj
+  const deleteReviewMutation = useMutation({
+    mutationFn: (reviewId: number) => apiService.deleteReview(Number(placeId), reviewId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', placeId] });
+      queryClient.invalidateQueries({ queryKey: ['place', placeId] });
+      queryClient.invalidateQueries({ queryKey: ['userReview', placeId, user?.id] });
+    },
+    onError: (error: any) => {
       const message = sanitizeErrorMessage(error);
       Alert.alert('Error', message);
     },
@@ -160,9 +154,6 @@ export default function PlaceDetailScreen() {
       handleAuthRequired('add a review');
       return;
     }
-
-    // Always allow navigation - let AddReviewScreen check backend
-    // This makes the flow feel welcoming, not restrictive
     try {
       navigation.navigate('AddReview', { placeId: place.id });
     } catch (error) {
@@ -175,7 +166,6 @@ export default function PlaceDetailScreen() {
       handleAuthRequired('edit your review');
       return;
     }
-
     try {
       navigation.navigate('AddReview', { 
         placeId: place.id,
@@ -187,20 +177,6 @@ export default function PlaceDetailScreen() {
       Alert.alert('Error', 'Could not open review editor. Please try again.');
     }
   };
-
-  // Delete review mutation
-  const deleteReviewMutation = useMutation({
-    mutationFn: (reviewId: number) => apiService.deleteReview(Number(placeId), reviewId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviews', placeId] });
-      queryClient.invalidateQueries({ queryKey: ['place', placeId] });
-      queryClient.invalidateQueries({ queryKey: ['userReview', placeId, user?.id] });
-    },
-    onError: (error: any) => {
-      const message = sanitizeErrorMessage(error);
-      Alert.alert('Error', message);
-    },
-  });
 
   const handleDeleteReview = (review: Review) => {
     Alert.alert(
@@ -224,9 +200,7 @@ export default function PlaceDetailScreen() {
       handleAuthRequired('favorite this place');
       return;
     }
-
     if (favoriteMutation.isPending) return;
-
     try {
       await favoriteMutation.mutateAsync();
     } catch (error) {
@@ -239,14 +213,56 @@ export default function PlaceDetailScreen() {
       handleAuthRequired('mark this place as visited');
       return;
     }
-
     if (visitedMutation.isPending) return;
-
     try {
       await visitedMutation.mutateAsync();
     } catch (error) {
-      // Error handled in mutation - sanitized
+      // Error handled in mutation
     }
+  };
+
+  const handleCall = () => {
+    if (place.phone) {
+      Linking.openURL(`tel:${place.phone}`);
+    }
+  };
+
+  const handleWebsite = () => {
+    if (place.website) {
+      let url = place.website;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = `https://${url}`;
+      }
+      Linking.openURL(url);
+    }
+  };
+
+  const handleDirections = () => {
+    const { latitude, longitude } = place;
+    const url = Platform.select({
+      ios: `maps://maps.apple.com/?daddr=${latitude},${longitude}`,
+      android: `google.navigation:q=${latitude},${longitude}`,
+    });
+    if (url) {
+      Linking.openURL(url).catch(() => {
+        // Fallback to web maps
+        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`);
+      });
+    } else {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`);
+    }
+  };
+
+  const getPriceLevelSymbols = (priceLevel?: string) => {
+    if (!priceLevel) return '';
+    const levels: { [key: string]: string } = {
+      FREE: 'Free',
+      LOW: '$',
+      MEDIUM: '$$',
+      HIGH: '$$$',
+      VERY_HIGH: '$$$$',
+    };
+    return levels[priceLevel] || '';
   };
 
   if (placeLoading) {
@@ -266,10 +282,7 @@ export default function PlaceDetailScreen() {
           <Text style={styles.errorSubtext}>
             {placeError ? 'An error occurred. Please try again.' : 'Place not found.'}
           </Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => navigation.goBack()}
-          >
+          <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
             <Text style={styles.retryButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -278,220 +291,278 @@ export default function PlaceDetailScreen() {
   }
 
   const photos = place.photos || [];
-  const coverPhoto = photos.find((photo: Photo) => photo.isCover) || photos[0];
-  const screenWidth = Dimensions.get('window').width;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Hero Header - Image Carousel */}
+      <View style={styles.heroContainer}>
+        <ImageCarousel photos={photos} height={360} />
+        <View style={styles.heroContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
+          >
+            <View style={styles.backButtonInner}>
+              <Feather name="arrow-left" size={20} color={colors.text} />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.heroTextContainer}>
+            <Text style={styles.heroName} numberOfLines={2}>
+              {place.name}
+            </Text>
+            {place.averageRating !== undefined && (
+              <View style={styles.heroRating}>
+                <RatingStars rating={place.averageRating} size={18} />
+                <Text style={styles.heroRatingText}>
+                  {place.averageRating.toFixed(1)} · {place.reviewCount || 0} reviews
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* Sticky Quick Action Bar */}
+      <View style={styles.quickActionBar}>
+        <TouchableOpacity
+          style={[
+            styles.quickActionButton,
+            isFavorited && styles.quickActionButtonActive,
+            favoriteMutation.isPending && styles.quickActionButtonDisabled,
+          ]}
+          onPress={handleFavorite}
+          disabled={favoriteMutation.isPending}
+          activeOpacity={0.7}
+        >
+          {favoriteMutation.isPending ? (
+            <ActivityIndicator size="small" color={isFavorited ? colors.background : colors.error} />
+          ) : (
+            <>
+              <Feather
+                name="heart"
+                size={18}
+                color={isFavorited ? colors.background : colors.error}
+                fill={isFavorited ? colors.background : 'transparent'}
+              />
+              <Text
+                style={[
+                  styles.quickActionText,
+                  isFavorited && styles.quickActionTextActive,
+                ]}
+              >
+                {isFavorited ? 'Favorited' : 'Favorite'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.quickActionButton,
+            isVisited && styles.quickActionButtonActive,
+            visitedMutation.isPending && styles.quickActionButtonDisabled,
+          ]}
+          onPress={handleVisited}
+          disabled={visitedMutation.isPending}
+          activeOpacity={0.7}
+        >
+          {visitedMutation.isPending ? (
+            <ActivityIndicator size="small" color={isVisited ? colors.background : colors.success} />
+          ) : (
+            <>
+              <Feather
+                name="check-circle"
+                size={18}
+                color={isVisited ? colors.background : colors.success}
+                fill={isVisited ? colors.background : 'transparent'}
+              />
+              <Text
+                style={[
+                  styles.quickActionText,
+                  isVisited && styles.quickActionTextActive,
+                ]}
+              >
+                {isVisited ? 'Visited' : 'Visited'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.quickActionButton}
+          onPress={handleAddReview}
+          activeOpacity={0.7}
+        >
+          <Feather name="edit-3" size={18} color={colors.primary} />
+          <Text style={styles.quickActionText}>Review</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Photo Carousel */}
-        {photos.length > 0 ? (
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            style={styles.photoCarousel}
-            contentContainerStyle={styles.photoCarouselContent}
-          >
-            {photos.map((photo: Photo, index: number) => (
-              <Image
-                key={photo.id || index}
-                source={{ uri: photo.url }}
-                style={styles.carouselImage}
-                resizeMode="cover"
-              />
-            ))}
-          </ScrollView>
-        ) : coverPhoto ? (
-          <Image
-            source={{ uri: coverPhoto.url }}
-            style={styles.image}
-            resizeMode="cover"
+        {/* Place Meta Info Card */}
+        <View style={styles.metaCard}>
+          <View style={styles.metaRow}>
+            {place.category && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{place.category.name}</Text>
+              </View>
+            )}
+            {place.priceLevel && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{getPriceLevelSymbols(place.priceLevel)}</Text>
+              </View>
+            )}
+            {place.distance !== undefined && place.distance !== null && (
+              <View style={styles.badge}>
+                <Feather name="map-pin" size={12} color={colors.primary} />
+                <Text style={styles.badgeText}>
+                  {place.distance < 1
+                    ? `${(place.distance * 1000).toFixed(0)}m away`
+                    : `${place.distance.toFixed(1)}km away`}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* About Section */}
+        {place.description && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>About this place</Text>
+            <Text style={styles.descriptionText}>{place.description}</Text>
+          </View>
+        )}
+
+        {/* Location Section */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Location</Text>
+          <MiniMapPreview
+            latitude={place.latitude}
+            longitude={place.longitude}
+            placeName={place.name}
+            onPress={handleDirections}
           />
-        ) : null}
-
-        <View style={styles.content}>
-          <Text style={styles.name}>{place.name}</Text>
-
-          {place.averageRating !== undefined && (
-            <View style={styles.ratingContainer}>
-              <RatingStars rating={place.averageRating} size={20} />
-              <Text style={styles.ratingText}>
-                {place.averageRating.toFixed(1)} ({place.reviewCount || 0} reviews)
-              </Text>
-            </View>
-          )}
-
-          <Text style={styles.address} numberOfLines={3}>
+          <Text style={styles.addressText}>
             {place.address}, {place.district}, {place.city}
           </Text>
+          <TouchableOpacity style={styles.directionsButton} onPress={handleDirections}>
+            <Feather name="navigation" size={18} color={colors.background} />
+            <Text style={styles.directionsButtonText}>Get Directions</Text>
+          </TouchableOpacity>
+        </View>
 
-          {place.description && (
-            <Text style={styles.description}>{place.description}</Text>
+        {/* Quick Contact Actions */}
+        {(place.phone || place.website) && (
+          <View style={styles.sectionCard}>
+            <View style={styles.contactActions}>
+              {place.phone && (
+                <TouchableOpacity style={styles.contactButton} onPress={handleCall}>
+                  <View style={styles.contactIcon}>
+                    <Feather name="phone" size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.contactLabel}>Call</Text>
+                </TouchableOpacity>
+              )}
+              {place.website && (
+                <TouchableOpacity style={styles.contactButton} onPress={handleWebsite}>
+                  <View style={styles.contactIcon}>
+                    <Feather name="globe" size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.contactLabel}>Website</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.contactButton} onPress={handleDirections}>
+                <View style={styles.contactIcon}>
+                  <Feather name="navigation" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.contactLabel}>Directions</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Reviews Section */}
+        <View style={styles.sectionCard}>
+          <View style={styles.reviewsHeader}>
+            <Text style={styles.sectionTitle}>Reviews</Text>
+            {reviews.length > 0 && (
+              <Text style={styles.reviewCount}>({reviews.length})</Text>
+            )}
+          </View>
+
+          {/* User's Review First */}
+          {hasUserReviewed && userReview ? (
+            <View style={styles.userReviewCard}>
+              <View style={styles.userReviewHeader}>
+                <View style={styles.userReviewHeaderLeft}>
+                  <View style={styles.userAvatar}>
+                    <Text style={styles.userAvatarText}>
+                      {userReview.user.displayName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.userReviewName}>Your Review</Text>
+                    <View style={styles.userReviewMeta}>
+                      <RatingStars rating={userReview.rating} size={14} />
+                      <Text style={styles.userReviewDate}>
+                        {new Date(userReview.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.userReviewActions}>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => handleEditReview(userReview)}
+                  >
+                    <Feather name="edit-2" size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteReview(userReview)}
+                  >
+                    <Feather name="trash-2" size={14} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <Text style={styles.userReviewComment}>{userReview.comment}</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.addReviewCard} onPress={handleAddReview}>
+              <Feather name="edit-3" size={24} color={colors.primary} />
+              <Text style={styles.addReviewCardText}>Share your experience</Text>
+              <Text style={styles.addReviewCardSubtext}>
+                Help others discover this place
+              </Text>
+            </TouchableOpacity>
           )}
 
-          {/* Action Buttons - Improved Visual Hierarchy */}
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                isFavorited && styles.actionButtonActive,
-                favoriteMutation.isPending && styles.actionButtonDisabled,
-              ]}
-              onPress={handleFavorite}
-              disabled={favoriteMutation.isPending}
-              activeOpacity={0.7}
-            >
-              {favoriteMutation.isPending ? (
-                <ActivityIndicator size="small" color={isFavorited ? colors.background : colors.primary} />
-              ) : (
-                <>
-                  <Feather
-                    name={isFavorited ? 'heart' : 'heart'}
-                    size={20}
-                    color={isFavorited ? colors.background : colors.favorite}
-                    fill={isFavorited ? colors.background : 'transparent'}
-                  />
-                  <Text
-                    style={[
-                      styles.actionButtonText,
-                      isFavorited && styles.actionButtonTextActive,
-                    ]}
-                  >
-                    {isFavorited ? 'Favorited' : 'Favorite'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                isVisited && styles.actionButtonActive,
-                visitedMutation.isPending && styles.actionButtonDisabled,
-              ]}
-              onPress={handleVisited}
-              disabled={visitedMutation.isPending}
-              activeOpacity={0.7}
-            >
-              {visitedMutation.isPending ? (
-                <ActivityIndicator size="small" color={isVisited ? colors.background : colors.primary} />
-              ) : (
-                <>
-                  <Feather
-                    name={isVisited ? 'check-circle' : 'circle'}
-                    size={20}
-                    color={isVisited ? colors.background : colors.visited}
-                    fill={isVisited ? colors.background : 'transparent'}
-                  />
-                  <Text
-                    style={[
-                      styles.actionButtonText,
-                      isVisited && styles.actionButtonTextActive,
-                    ]}
-                  >
-                    {isVisited ? 'Visited' : "I've been here"}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Review Action - State-Based, Always Clear */}
-          <View style={styles.reviewActionContainer}>
-            {hasUserReviewed && userReview ? (
-              <View style={styles.userReviewCard}>
-                <View style={styles.userReviewHeader}>
-                  <View style={styles.userReviewHeaderLeft}>
-                    <Feather name="check-circle" size={20} color={colors.success} />
-                    <Text style={styles.userReviewTitle}>Your Review</Text>
-                  </View>
-                  <View style={styles.userReviewRating}>
-                    <RatingStars rating={userReview.rating} size={16} />
-                  </View>
-                </View>
-                <Text style={styles.userReviewComment}>{userReview.comment}</Text>
-                <Text style={styles.userReviewDate}>
-                  {new Date(userReview.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </Text>
-                {/* Edit/Delete Actions */}
-                <View style={styles.reviewActions}>
-                  <TouchableOpacity
-                    style={styles.editReviewButton}
-                    onPress={() => handleEditReview(userReview)}
-                    activeOpacity={0.8}
-                  >
-                    <Feather name="edit-2" size={16} color={colors.primary} />
-                    <Text style={styles.editReviewButtonText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteReviewButton}
-                    onPress={() => handleDeleteReview(userReview)}
-                    activeOpacity={0.8}
-                  >
-                    <Feather name="trash-2" size={16} color={colors.error} />
-                    <Text style={styles.deleteReviewButtonText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.addReviewButton}
-                onPress={handleAddReview}
-                activeOpacity={0.8}
-              >
-                <Feather name="edit-3" size={20} color={colors.background} />
-                <Text style={styles.addReviewButtonText}>
-                  {isAuthenticated ? 'Write a Review' : 'Sign In to Review'}
-                </Text>
-                <Feather name="chevron-right" size={18} color={colors.background} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Reviews Section - Other Users' Reviews */}
-          <View style={styles.reviewsSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                {hasUserReviewed ? 'Other Reviews' : 'Reviews'}
+          {/* Other Reviews */}
+          {otherReviews.length > 0 ? (
+            <FlatList
+              data={otherReviews}
+              keyExtractor={(item: Review) => item.id.toString()}
+              renderItem={({ item }) => <ReviewCard review={item} />}
+              scrollEnabled={false}
+            />
+          ) : !hasUserReviewed ? (
+            <View style={styles.emptyReviews}>
+              <Feather name="message-circle" size={48} color={colors.textTertiary} />
+              <Text style={styles.emptyReviewsText}>No reviews yet</Text>
+              <Text style={styles.emptyReviewsSubtext}>
+                Be the first to review this place
               </Text>
-              {reviews.length > 0 && (
-                <Text style={styles.reviewCount}>({reviews.length})</Text>
-              )}
             </View>
-            {reviewsLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : reviews.length > 0 ? (
-              <FlatList
-                data={reviews}
-                keyExtractor={(item: Review) => item.id.toString()}
-                renderItem={({ item }) => <ReviewCard review={item} />}
-                scrollEnabled={false}
-              />
-            ) : (
-              <View style={styles.noReviewsContainer}>
-                <Feather name="message-circle" size={48} color={colors.textTertiary} />
-                <Text style={styles.noReviewsText}>
-                  {hasUserReviewed ? 'No other reviews yet' : 'No reviews yet'}
-                </Text>
-                <Text style={styles.noReviewsSubtext}>
-                  {hasUserReviewed
-                    ? 'You were the first to review this place!'
-                    : 'Be the first to review this place'}
-                </Text>
-              </View>
-            )}
-          </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -503,11 +574,307 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  heroContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  heroContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  backButton: {
+    position: 'absolute',
+    top: spacing.lg,
+    left: spacing.lg,
+    zIndex: 10,
+  },
+  backButtonInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadowSm,
+  },
+  heroTextContainer: {
+    marginTop: spacing.xl,
+  },
+  heroName: {
+    ...typography.h1,
+    color: colors.background,
+    fontSize: 32,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  heroRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  heroRatingText: {
+    ...typography.body,
+    color: 'rgba(255,255,255,0.95)',
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  quickActionBar: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    gap: spacing.sm,
+    ...shadowSm,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.xs,
+  },
+  quickActionButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  quickActionButtonDisabled: {
+    opacity: 0.6,
+  },
+  quickActionText: {
+    ...typography.buttonSmall,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  quickActionTextActive: {
+    color: colors.background,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: spacing.xl,
+  },
+  metaCard: {
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  badgeText: {
+    ...typography.bodySmall,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  sectionCard: {
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    marginTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  sectionTitle: {
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.md,
+    fontWeight: '700',
+  },
+  descriptionText: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 24,
+  },
+  addressText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+    lineHeight: 22,
+  },
+  directionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  directionsButtonText: {
+    ...typography.button,
+    color: colors.background,
+    fontWeight: '600',
+  },
+  contactActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    gap: spacing.md,
+  },
+  contactButton: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  contactIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  contactLabel: {
+    ...typography.bodySmall,
+    color: colors.text,
+    fontWeight: '500',
+    marginTop: spacing.xs,
+  },
+  reviewsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  reviewCount: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  userReviewCard: {
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    ...shadowSm,
+  },
+  userReviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  userReviewHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    flex: 1,
+  },
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userAvatarText: {
+    ...typography.h3,
+    color: colors.background,
+    fontWeight: '700',
+  },
+  userReviewName: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  userReviewMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  userReviewDate: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  userReviewActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  editButton: {
+    padding: spacing.xs,
+  },
+  deleteButton: {
+    padding: spacing.xs,
+  },
+  userReviewComment: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 22,
+  },
+  addReviewCard: {
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    marginBottom: spacing.md,
+  },
+  addReviewCardText: {
+    ...typography.h3,
+    color: colors.text,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    fontWeight: '600',
+  },
+  addReviewCardSubtext: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  emptyReviews: {
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  emptyReviewsText: {
+    ...typography.h3,
+    color: colors.text,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  emptyReviewsSubtext: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   errorContainer: {
     flex: 1,
@@ -537,233 +904,5 @@ const styles = StyleSheet.create({
   retryButtonText: {
     ...typography.button,
     color: colors.background,
-  },
-  image: {
-    width: '100%',
-    height: 320,
-    backgroundColor: colors.backgroundSecondary,
-  },
-  photoCarousel: {
-    width: '100%',
-    height: 320,
-  },
-  photoCarouselContent: {
-    alignItems: 'center',
-  },
-  carouselImage: {
-    width: Dimensions.get('window').width,
-    height: 320,
-    backgroundColor: colors.backgroundSecondary,
-  },
-  content: {
-    padding: spacing.lg,
-  },
-  name: {
-    ...typography.h1,
-    color: colors.text,
-    marginBottom: spacing.md,
-    fontWeight: '700',
-    fontSize: 28,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  ratingText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  address: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    lineHeight: 22,
-  },
-  description: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.lg,
-    lineHeight: 24,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    gap: spacing.sm,
-    minHeight: 52,
-  },
-  actionButtonActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-  actionButtonDisabled: {
-    opacity: 0.6,
-  },
-  actionButtonText: {
-    ...typography.button,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  actionButtonTextActive: {
-    color: colors.background,
-    fontWeight: '600',
-  },
-  reviewActionContainer: {
-    marginBottom: spacing.xl,
-  },
-  addReviewButton: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.lg,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-    ...shadowMd,
-    minHeight: 56,
-  },
-  userReviewCard: {
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.success,
-    ...shadowSm,
-  },
-  userReviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  userReviewHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  userReviewTitle: {
-    ...typography.h3,
-    color: colors.text,
-    fontWeight: '700',
-  },
-  userReviewRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userReviewComment: {
-    ...typography.body,
-    color: colors.text,
-    lineHeight: 22,
-    marginBottom: spacing.sm,
-  },
-  userReviewDate: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  reviewActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  editReviewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  editReviewButtonText: {
-    ...typography.buttonSmall,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  deleteReviewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.error,
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  deleteReviewButtonText: {
-    ...typography.buttonSmall,
-    color: colors.error,
-    fontWeight: '600',
-  },
-  addReviewButtonText: {
-    ...typography.button,
-    color: colors.background,
-    fontWeight: '700',
-    fontSize: 17,
-    flex: 1,
-    textAlign: 'center',
-  },
-  reviewsSection: {
-    marginTop: spacing.xl,
-    paddingTop: spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.text,
-  },
-  reviewCount: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  noReviewsContainer: {
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  noReviewsText: {
-    ...typography.body,
-    color: colors.text,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  noReviewsSubtext: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
 });
