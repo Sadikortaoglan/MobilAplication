@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -291,26 +292,30 @@ export default function PlaceDetailScreen() {
 
   if (placeLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <LoadingIndicator message="Loading place details..." />
-      </SafeAreaView>
+      <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          <LoadingIndicator message="Loading place details..." />
+        </SafeAreaView>
+      </View>
     );
   }
 
   if (placeError || !place) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.errorContainer}>
-          <Feather name="alert-circle" size={48} color={colors.error} />
-          <Text style={styles.errorText}>Could not load place</Text>
-          <Text style={styles.errorSubtext}>
-            {placeError ? 'An error occurred. Please try again.' : 'Place not found.'}
-          </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.retryButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          <View style={styles.errorContainer}>
+            <Feather name="alert-circle" size={48} color={colors.error} />
+            <Text style={styles.errorText}>Could not load place</Text>
+            <Text style={styles.errorSubtext}>
+              {placeError ? 'An error occurred. Please try again.' : 'Place not found.'}
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+              <Text style={styles.retryButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
     );
   }
 
@@ -341,12 +346,15 @@ export default function PlaceDetailScreen() {
     return null;
   };
 
+  const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+  const HERO_HEIGHT = 320;
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Hero Header - Image Carousel */}
-      <View style={styles.heroContainer}>
-        <ImageCarousel photos={photos} height={360} />
-        <View style={styles.heroContent}>
+    <View style={styles.container}>
+      {/* Hero Image - Fixed Top */}
+      <View style={[styles.heroContainer, { height: HERO_HEIGHT }]}>
+        <ImageCarousel photos={photos} height={HERO_HEIGHT} />
+        <View style={styles.heroOverlay}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -356,220 +364,219 @@ export default function PlaceDetailScreen() {
               <Feather name="arrow-left" size={20} color={colors.text} />
             </View>
           </TouchableOpacity>
-          <View style={styles.heroTextContainer}>
-            <View style={styles.heroTitleRow}>
-              <Text style={styles.heroName} numberOfLines={2}>
+          {place.averageRating !== undefined && (
+            <View style={styles.heroRatingBadge}>
+              <RatingStars rating={place.averageRating} size={16} />
+              <Text style={styles.heroRatingText}>
+                {place.averageRating.toFixed(1)} · {place.reviewCount || 0}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Scrollable Bottom Sheet */}
+      <View style={[styles.bottomSheet, { top: HERO_HEIGHT - 20 }]}>
+        {/* Sheet Handle */}
+        <View style={styles.sheetHandle} />
+
+        <ScrollView
+          style={styles.sheetScrollView}
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Place Name & Status */}
+          <View style={styles.sheetHeader}>
+            <View style={styles.sheetTitleRow}>
+              <Text style={styles.sheetTitle} numberOfLines={2}>
                 {place.name}
               </Text>
               {getStatusBadge()}
             </View>
-            {place.averageRating !== undefined && (
-              <View style={styles.heroRating}>
-                <RatingStars rating={place.averageRating} size={18} />
-                <Text style={styles.heroRatingText}>
-                  {place.averageRating.toFixed(1)} · {place.reviewCount || 0} reviews
-                </Text>
+          </View>
+
+          {/* Status Message for Rejected */}
+          {isRejected && place.rejectionReason && (
+            <View style={styles.rejectionCard}>
+              <Feather name="alert-circle" size={18} color={colors.error} />
+              <View style={styles.rejectionText}>
+                <Text style={styles.rejectionTitle}>This place was rejected</Text>
+                <Text style={styles.rejectionReason}>{place.rejectionReason}</Text>
               </View>
-            )}
-          </View>
-        </View>
-      </View>
-
-      {/* Status Message for Rejected */}
-      {isRejected && place.rejectionReason && (
-        <View style={styles.rejectionCard}>
-          <Feather name="alert-circle" size={20} color={colors.error} />
-          <View style={styles.rejectionText}>
-            <Text style={styles.rejectionTitle}>This place was rejected</Text>
-            <Text style={styles.rejectionReason}>{place.rejectionReason}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Sticky Quick Action Bar */}
-      <View style={styles.quickActionBar}>
-        <TouchableOpacity
-          style={[
-            styles.quickActionButton,
-            isFavorited && styles.quickActionButtonActive,
-            favoriteMutation.isPending && styles.quickActionButtonDisabled,
-          ]}
-          onPress={handleFavorite}
-          disabled={favoriteMutation.isPending}
-          activeOpacity={0.7}
-        >
-          {favoriteMutation.isPending ? (
-            <ActivityIndicator size="small" color={isFavorited ? colors.background : colors.error} />
-          ) : (
-            <>
-              <Feather
-                name="heart"
-                size={18}
-                color={isFavorited ? colors.background : colors.error}
-                fill={isFavorited ? colors.background : 'transparent'}
-              />
-              <Text
-                style={[
-                  styles.quickActionText,
-                  isFavorited && styles.quickActionTextActive,
-                ]}
-              >
-                {isFavorited ? 'Favorited' : 'Favorite'}
-              </Text>
-            </>
+            </View>
           )}
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.quickActionButton,
-            isVisited && styles.quickActionButtonActive,
-            visitedMutation.isPending && styles.quickActionButtonDisabled,
-          ]}
-          onPress={handleVisited}
-          disabled={visitedMutation.isPending}
-          activeOpacity={0.7}
-        >
-          {visitedMutation.isPending ? (
-            <ActivityIndicator size="small" color={isVisited ? colors.background : colors.success} />
-          ) : (
-            <>
-              <Feather
-                name="check-circle"
-                size={18}
-                color={isVisited ? colors.background : colors.success}
-                fill={isVisited ? colors.background : 'transparent'}
+          {/* Primary Actions Row */}
+          <View style={styles.primaryActions}>
+                <TouchableOpacity
+              style={[
+                styles.quickActionButton,
+                isFavorited && styles.quickActionButtonActive,
+                favoriteMutation.isPending && styles.quickActionButtonDisabled,
+              ]}
+              onPress={handleFavorite}
+              disabled={favoriteMutation.isPending}
+              activeOpacity={0.7}
+            >
+              {favoriteMutation.isPending ? (
+                <ActivityIndicator size="small" color={isFavorited ? colors.background : colors.error} />
+              ) : (
+                <>
+                  <Feather
+                    name="heart"
+                    size={18}
+                    color={isFavorited ? colors.background : colors.error}
+                    fill={isFavorited ? colors.background : 'transparent'}
+                  />
+                  <Text
+                    style={[
+                      styles.quickActionText,
+                      isFavorited && styles.quickActionTextActive,
+                    ]}
+                  >
+                    {isFavorited ? 'Favorited' : 'Favorite'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.quickActionButton,
+                isVisited && styles.quickActionButtonActive,
+                visitedMutation.isPending && styles.quickActionButtonDisabled,
+              ]}
+              onPress={handleVisited}
+              disabled={visitedMutation.isPending}
+              activeOpacity={0.7}
+            >
+              {visitedMutation.isPending ? (
+                <ActivityIndicator size="small" color={isVisited ? colors.background : colors.success} />
+              ) : (
+                <>
+                  <Feather
+                    name="check-circle"
+                    size={18}
+                    color={isVisited ? colors.background : colors.success}
+                    fill={isVisited ? colors.background : 'transparent'}
+                  />
+                  <Text
+                    style={[
+                      styles.quickActionText,
+                      isVisited && styles.quickActionTextActive,
+                    ]}
+                  >
+                    {isVisited ? 'Visited' : 'Visited'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.quickActionButton,
+                isPending && styles.quickActionButtonDisabled,
+              ]}
+              onPress={handleAddReview}
+              activeOpacity={0.7}
+              disabled={isPending}
+            >
+              <Feather 
+                name="edit-3" 
+                size={18} 
+                color={isPending ? colors.textTertiary : colors.primary} 
               />
-              <Text
-                style={[
-                  styles.quickActionText,
-                  isVisited && styles.quickActionTextActive,
-                ]}
-              >
-                {isVisited ? 'Visited' : 'Visited'}
+              <Text style={[
+                styles.quickActionText,
+                isPending && styles.quickActionTextDisabled,
+              ]}>
+                Review
               </Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.quickActionButton,
-            isPending && styles.quickActionButtonDisabled,
-          ]}
-          onPress={handleAddReview}
-          activeOpacity={0.7}
-          disabled={isPending}
-        >
-          <Feather 
-            name="edit-3" 
-            size={18} 
-            color={isPending ? colors.textTertiary : colors.primary} 
-          />
-          <Text style={[
-            styles.quickActionText,
-            isPending && styles.quickActionTextDisabled,
-          ]}>
-            Review
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Place Meta Info Card */}
-        <View style={styles.metaCard}>
-          <View style={styles.metaRow}>
-            {place.category && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{place.category.name}</Text>
-              </View>
-            )}
-            {place.priceLevel && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{getPriceLevelSymbols(place.priceLevel)}</Text>
-              </View>
-            )}
-            {place.distance !== undefined && place.distance !== null && (
-              <View style={styles.badge}>
-                <Feather name="map-pin" size={12} color={colors.primary} />
-                <Text style={styles.badgeText}>
-                  {place.distance < 1
-                    ? `${(place.distance * 1000).toFixed(0)}m away`
-                    : `${place.distance.toFixed(1)}km away`}
-                </Text>
-              </View>
-            )}
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* About Section */}
-        {place.description && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>About this place</Text>
-            <Text style={styles.descriptionText}>{place.description}</Text>
-          </View>
-        )}
-
-        {/* Location Section */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Location</Text>
-          <MiniMapPreview
-            latitude={place.latitude}
-            longitude={place.longitude}
-            placeName={place.name}
-            onPress={handleDirections}
-          />
-          <Text style={styles.addressText}>
-            {place.address}, {place.district}, {place.city}
-          </Text>
-          <TouchableOpacity style={styles.directionsButton} onPress={handleDirections}>
-            <Feather name="navigation" size={18} color={colors.background} />
-            <Text style={styles.directionsButtonText}>Get Directions</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Quick Contact Actions */}
-        {(place.phone || place.website) && (
-          <View style={styles.sectionCard}>
-            <View style={styles.contactActions}>
-              {place.phone && (
-                <TouchableOpacity style={styles.contactButton} onPress={handleCall}>
-                  <View style={styles.contactIcon}>
-                    <Feather name="phone" size={20} color={colors.primary} />
-                  </View>
-                  <Text style={styles.contactLabel}>Call</Text>
-                </TouchableOpacity>
-              )}
-              {place.website && (
-                <TouchableOpacity style={styles.contactButton} onPress={handleWebsite}>
-                  <View style={styles.contactIcon}>
-                    <Feather name="globe" size={20} color={colors.primary} />
-                  </View>
-                  <Text style={styles.contactLabel}>Website</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.contactButton} onPress={handleDirections}>
-                <View style={styles.contactIcon}>
-                  <Feather name="navigation" size={20} color={colors.primary} />
+            {/* Category & Price Badges */}
+            <View style={styles.badgesRow}>
+              {place.category && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{place.category.name}</Text>
                 </View>
-                <Text style={styles.contactLabel}>Directions</Text>
+              )}
+              {place.priceLevel && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{getPriceLevelSymbols(place.priceLevel)}</Text>
+                </View>
+              )}
+              {place.distance !== undefined && place.distance !== null && (
+                <View style={styles.badge}>
+                  <Feather name="map-pin" size={12} color={colors.primary} />
+                  <Text style={styles.badgeText}>
+                    {place.distance < 1
+                      ? `${(place.distance * 1000).toFixed(0)}m`
+                      : `${place.distance.toFixed(1)}km`}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* About Section */}
+            {place.description && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>About</Text>
+                <Text style={styles.descriptionText} numberOfLines={4}>
+                  {place.description}
+                </Text>
+              </View>
+            )}
+
+            {/* Location Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Location</Text>
+              <MiniMapPreview
+                latitude={place.latitude}
+                longitude={place.longitude}
+                placeName={place.name}
+                onPress={handleDirections}
+              />
+              <Text style={styles.addressText}>
+                {place.address}, {place.district}, {place.city}
+              </Text>
+              <TouchableOpacity style={styles.directionsButton} onPress={handleDirections}>
+                <Feather name="navigation" size={18} color={colors.background} />
+                <Text style={styles.directionsButtonText}>Get Directions</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        )}
 
-        {/* Reviews Section */}
-        <View style={styles.sectionCard}>
-          <View style={styles.reviewsHeader}>
-            <Text style={styles.sectionTitle}>Reviews</Text>
-            {reviews.length > 0 && (
-              <Text style={styles.reviewCount}>({reviews.length})</Text>
+            {/* Quick Contact Actions */}
+            {(place.phone || place.website) && (
+              <View style={styles.contactActions}>
+                {place.phone && (
+                  <TouchableOpacity style={styles.contactButton} onPress={handleCall}>
+                    <Feather name="phone" size={20} color={colors.primary} />
+                    <Text style={styles.contactLabel}>Call</Text>
+                  </TouchableOpacity>
+                )}
+                {place.website && (
+                  <TouchableOpacity style={styles.contactButton} onPress={handleWebsite}>
+                    <Feather name="globe" size={20} color={colors.primary} />
+                    <Text style={styles.contactLabel}>Website</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.contactButton} onPress={handleDirections}>
+                  <Feather name="navigation" size={20} color={colors.primary} />
+                  <Text style={styles.contactLabel}>Directions</Text>
+                </TouchableOpacity>
+              </View>
             )}
-          </View>
+
+            {/* Reviews Section */}
+            <View style={styles.section}>
+              <View style={styles.reviewsHeader}>
+                <Text style={styles.sectionTitle}>Reviews</Text>
+                {reviews.length > 0 && (
+                  <Text style={styles.reviewCount}>({reviews.length})</Text>
+                )}
+              </View>
 
           {/* User's Review First */}
           {hasUserReviewed && userReview ? (
@@ -632,16 +639,29 @@ export default function PlaceDetailScreen() {
             />
           ) : !hasUserReviewed ? (
             <View style={styles.emptyReviews}>
-              <Feather name="message-circle" size={48} color={colors.textTertiary} />
+              <View style={styles.emptyReviewsIcon}>
+                <Feather name="message-circle" size={40} color={colors.textTertiary} />
+              </View>
               <Text style={styles.emptyReviewsText}>No reviews yet</Text>
               <Text style={styles.emptyReviewsSubtext}>
-                Be the first to review this place
+                Be the first to share your experience
               </Text>
+              {isAuthenticated && (
+                <TouchableOpacity
+                  style={styles.emptyReviewsButton}
+                  onPress={handleAddReview}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="edit-3" size={16} color={colors.background} />
+                  <Text style={styles.emptyReviewsButtonText}>Write a Review</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : null}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            </View>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
@@ -651,67 +671,102 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   heroContainer: {
-    position: 'relative',
-    width: '100%',
-  },
-  heroContent: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
+    width: '100%',
+    zIndex: 1,
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingTop: spacing.xl + 20,
   },
   backButton: {
-    position: 'absolute',
-    top: spacing.lg,
-    left: spacing.lg,
-    zIndex: 10,
+    alignSelf: 'flex-start',
   },
   backButtonInner: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     ...shadowSm,
   },
-  heroTextContainer: {
-    marginTop: spacing.xl,
-  },
-  heroName: {
-    ...typography.h1,
-    color: colors.background,
-    fontSize: 32,
-    fontWeight: '800',
-    marginBottom: spacing.sm,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  heroRating: {
+  heroRatingBadge: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    right: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.xl,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    ...shadowSm,
   },
   heroRatingText: {
-    ...typography.body,
-    color: 'rgba(255,255,255,0.95)',
+    ...typography.bodySmall,
+    color: colors.text,
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
-  quickActionBar: {
+  bottomSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    ...shadowMd,
+    zIndex: 2,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  sheetScrollView: {
+    flex: 1,
+  },
+  sheetContent: {
+    paddingBottom: spacing.xxl + 20,
+  },
+  sheetHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  sheetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  sheetTitle: {
+    ...typography.h1,
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.text,
+    flex: 1,
+  },
+  primaryActions: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.background,
+    gap: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
-    gap: spacing.sm,
-    ...shadowSm,
   },
   quickActionButton: {
     flex: 1,
@@ -720,7 +775,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.backgroundSecondary,
     borderWidth: 1,
     borderColor: colors.border,
@@ -741,27 +796,18 @@ const styles = StyleSheet.create({
   quickActionTextActive: {
     color: colors.background,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xl,
-  },
-  metaCard: {
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  metaRow: {
+  badgesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xs + 2,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.xl,
     backgroundColor: colors.backgroundSecondary,
@@ -771,13 +817,12 @@ const styles = StyleSheet.create({
   badgeText: {
     ...typography.bodySmall,
     color: colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontSize: 13,
   },
-  sectionCard: {
-    backgroundColor: colors.background,
+  section: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    marginTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
   },
@@ -786,11 +831,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.md,
     fontWeight: '700',
+    fontSize: 20,
   },
   descriptionText: {
     ...typography.body,
     color: colors.text,
-    lineHeight: 24,
+    lineHeight: 22,
+    fontSize: 15,
   },
   addressText: {
     ...typography.body,
@@ -818,22 +865,16 @@ const styles = StyleSheet.create({
   contactActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
   },
   contactButton: {
     alignItems: 'center',
     gap: spacing.xs,
     flex: 1,
-  },
-  contactIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.backgroundSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    paddingVertical: spacing.sm,
   },
   contactLabel: {
     ...typography.bodySmall,
@@ -940,17 +981,43 @@ const styles = StyleSheet.create({
   emptyReviews: {
     alignItems: 'center',
     padding: spacing.xl,
+    paddingVertical: spacing.xxl,
+  },
+  emptyReviewsIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   emptyReviewsText: {
     ...typography.h3,
     color: colors.text,
-    marginTop: spacing.md,
     marginBottom: spacing.xs,
+    fontWeight: '600',
   },
   emptyReviewsSubtext: {
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyReviewsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginTop: spacing.sm,
+  },
+  emptyReviewsButtonText: {
+    ...typography.button,
+    color: colors.background,
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,

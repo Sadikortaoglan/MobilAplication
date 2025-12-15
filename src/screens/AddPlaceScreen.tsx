@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useLocationStore } from '../store/locationStore';
@@ -28,6 +28,7 @@ export default function AddPlaceScreen() {
   const navigation = useNavigation<any>();
   const { isAuthenticated, showAuthModal } = useAuthStore();
   const { currentLocation } = useLocationStore();
+  const queryClient = useQueryClient();
   
   const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState('');
@@ -45,23 +46,58 @@ export default function AddPlaceScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: () =>
-      apiService.addPlace({
+    mutationFn: () => {
+      // Validate required fields
+      if (!name.trim()) {
+        throw new Error('Place name is required');
+      }
+      if (!selectedCategory) {
+        throw new Error('Category is required');
+      }
+      if (!address.trim() || !city.trim() || !district.trim()) {
+        throw new Error('Address, city, and district are required');
+      }
+      if (latitude === null || longitude === null || isNaN(latitude) || isNaN(longitude)) {
+        throw new Error('Valid location coordinates are required');
+      }
+
+      return apiService.addPlace({
         name: name.trim(),
-        categoryId: selectedCategory!.id,
+        categoryId: selectedCategory.id,
         address: address.trim(),
         city: city.trim(),
         district: district.trim(),
-        latitude: latitude!,
-        longitude: longitude!,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
         description: description.trim() || undefined,
-      }),
+      });
+    },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['places'] });
+      queryClient.invalidateQueries({ queryKey: ['popularPlaces'] });
       navigation.replace('AddPlaceSuccess', { placeId: data.id });
     },
     onError: (error: any) => {
-      const message = sanitizeErrorMessage(error);
-      Alert.alert('Error', message);
+      // Show specific error messages
+      let errorMessage = 'Failed to submit place';
+      
+      if (error.message) {
+        // Client-side validation error
+        errorMessage = error.message;
+      } else if (error.response?.data?.message) {
+        // Backend error message
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Invalid data. Please check all fields.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Please sign in to add a place.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else {
+        errorMessage = sanitizeErrorMessage(error);
+      }
+
+      Alert.alert('Error', errorMessage);
     },
   });
 

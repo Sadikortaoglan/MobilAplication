@@ -12,11 +12,13 @@ import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api';
 import { useLocationStore } from '../store/locationStore';
 import { usePlacesStore } from '../store/placesStore';
+import { Feather } from '@expo/vector-icons';
 import PlaceCard from '../components/PlaceCard';
 import CustomMapView from '../components/MapView';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { Place } from '../types';
 import { MainTabParamList } from '../navigation/types';
+import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
 
 type NearbyScreenRouteProp = RouteProp<MainTabParamList, 'Nearby'>;
 
@@ -124,7 +126,23 @@ export default function NearbyScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No places found nearby</Text>
+              <View style={styles.emptyIconContainer}>
+                <Feather name="map" size={64} color={colors.primary} />
+              </View>
+              <Text style={styles.emptyTitle}>No places found nearby</Text>
+              <Text style={styles.emptySubtext}>
+                {categoryId
+                  ? `We couldn't find any places in this category within 10km.`
+                  : `We couldn't find any places within 10km.`}
+              </Text>
+              <TouchableOpacity
+                style={styles.emptyActionButton}
+                onPress={() => navigation.navigate('ExploreHome')}
+                activeOpacity={0.8}
+              >
+                <Feather name="compass" size={18} color={colors.background} />
+                <Text style={styles.emptyActionButtonText}>Browse All Places</Text>
+              </TouchableOpacity>
             </View>
           }
         />
@@ -188,12 +206,46 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: spacing.xl,
+    paddingTop: spacing.xxl,
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: `${colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyTitle: {
+    ...typography.h2,
+    color: colors.text,
+    marginBottom: spacing.sm,
     textAlign: 'center',
+    fontWeight: '700',
+  },
+  emptySubtext: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 22,
+  },
+  emptyActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    ...shadowMd,
+  },
+  emptyActionButtonText: {
+    ...typography.button,
+    color: colors.background,
+    fontWeight: '600',
   },
   errorText: {
     fontSize: 18,

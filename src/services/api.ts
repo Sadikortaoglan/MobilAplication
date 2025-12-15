@@ -183,9 +183,46 @@ class ApiService {
     latitude: number;
     longitude: number;
     description?: string;
+    phone?: string;
+    website?: string;
+    priceLevel?: string;
   }) {
-    const response = await this.client.post('/api/places', data);
-    return response.data;
+    // Ensure lat/lng are numbers, not null
+    const payload = {
+      name: data.name.trim(),
+      categoryId: Number(data.categoryId),
+      address: data.address.trim(),
+      city: data.city.trim(),
+      district: data.district.trim(),
+      latitude: Number(data.latitude),
+      longitude: Number(data.longitude),
+      ...(data.description?.trim() ? { description: data.description.trim() } : {}),
+      ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
+      ...(data.website?.trim() ? { website: data.website.trim() } : {}),
+      ...(data.priceLevel ? { priceLevel: data.priceLevel } : {}),
+    };
+
+    // Log request for debugging
+    if (__DEV__) {
+      console.log('📤 Add Place Request:', JSON.stringify(payload, null, 2));
+    }
+
+    try {
+      const response = await this.client.post('/api/user/places', payload);
+      if (__DEV__) {
+        console.log('✅ Add Place Response:', response.status, response.data);
+      }
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('❌ Add Place Error:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+      }
+      throw error;
+    }
   }
 
   // Favorites
