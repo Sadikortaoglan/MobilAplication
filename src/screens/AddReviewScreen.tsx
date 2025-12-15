@@ -50,17 +50,19 @@ export default function AddReviewScreen() {
       queryClient.invalidateQueries({ queryKey: ['reviews', placeId] });
       queryClient.invalidateQueries({ queryKey: ['place', placeId] });
       queryClient.invalidateQueries({ queryKey: ['userReview', placeId, user?.id] });
+      // Success - navigate back (visual feedback is the navigation)
       navigation.goBack();
     },
     onError: (error: any) => {
       // Check if it's a 409 (already reviewed) or other error
       const status = error.response?.status;
       if (status === 409) {
-        // Backend confirms review exists
+        // Backend confirms review exists - this is a state, not an error
         refetchUserReview(); // Refresh state
-        throw new Error('You have already reviewed this place.');
+        // Don't throw - let ReviewForm handle gracefully
+        return;
       }
-      // Other errors handled in ReviewForm
+      // Other errors - let ReviewForm handle
       throw error;
     },
   });

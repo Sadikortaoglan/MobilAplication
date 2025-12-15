@@ -352,13 +352,26 @@ export default function PlaceDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Review Action - Always Welcoming */}
+          {/* Review Action - State-Based, Always Clear */}
           <View style={styles.reviewActionContainer}>
-            {hasUserReviewed ? (
-              <View style={styles.reviewedBadge}>
-                <Feather name="check-circle" size={20} color={colors.success} />
-                <Text style={styles.reviewedBadgeText}>
-                  You've reviewed this place
+            {hasUserReviewed && userReview ? (
+              <View style={styles.userReviewCard}>
+                <View style={styles.userReviewHeader}>
+                  <View style={styles.userReviewHeaderLeft}>
+                    <Feather name="check-circle" size={20} color={colors.success} />
+                    <Text style={styles.userReviewTitle}>Your Review</Text>
+                  </View>
+                  <View style={styles.userReviewRating}>
+                    <RatingStars rating={userReview.rating} size={16} />
+                  </View>
+                </View>
+                <Text style={styles.userReviewComment}>{userReview.comment}</Text>
+                <Text style={styles.userReviewDate}>
+                  {new Date(userReview.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
                 </Text>
               </View>
             ) : (
@@ -376,9 +389,16 @@ export default function PlaceDetailScreen() {
             )}
           </View>
 
-          {/* Reviews Section */}
+          {/* Reviews Section - Other Users' Reviews */}
           <View style={styles.reviewsSection}>
-            <Text style={styles.sectionTitle}>Reviews</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                {hasUserReviewed ? 'Other Reviews' : 'Reviews'}
+              </Text>
+              {reviews.length > 0 && (
+                <Text style={styles.reviewCount}>({reviews.length})</Text>
+              )}
+            </View>
             {reviewsLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -392,10 +412,14 @@ export default function PlaceDetailScreen() {
               />
             ) : (
               <View style={styles.noReviewsContainer}>
-                <Feather name="message-circle" size={32} color={colors.textTertiary} />
-                <Text style={styles.noReviewsText}>No reviews yet</Text>
+                <Feather name="message-circle" size={48} color={colors.textTertiary} />
+                <Text style={styles.noReviewsText}>
+                  {hasUserReviewed ? 'No other reviews yet' : 'No reviews yet'}
+                </Text>
                 <Text style={styles.noReviewsSubtext}>
-                  Be the first to review this place
+                  {hasUserReviewed
+                    ? 'You were the first to review this place!'
+                    : 'Be the first to review this place'}
                 </Text>
               </View>
             )}
@@ -546,22 +570,43 @@ const styles = StyleSheet.create({
     ...shadowMd,
     minHeight: 56,
   },
-  reviewedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+  userReviewCard: {
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     borderWidth: 1.5,
     borderColor: colors.success,
+    ...shadowSm,
+  },
+  userReviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  userReviewHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  reviewedBadgeText: {
-    ...typography.button,
-    color: colors.success,
-    fontWeight: '600',
+  userReviewTitle: {
+    ...typography.h3,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  userReviewRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userReviewComment: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 22,
+    marginBottom: spacing.sm,
+  },
+  userReviewDate: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   addReviewButtonText: {
     ...typography.button,
@@ -572,12 +617,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   reviewsSection: {
-    marginTop: spacing.md,
+    marginTop: spacing.xl,
+    paddingTop: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     ...typography.h3,
     color: colors.text,
-    marginBottom: spacing.md,
+  },
+  reviewCount: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   loadingContainer: {
     padding: spacing.xl,

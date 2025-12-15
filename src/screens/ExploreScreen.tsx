@@ -49,7 +49,25 @@ export default function ExploreScreen() {
     },
   });
 
+  // Fetch nearby places if location available
+  const { data: nearbyPlacesResponse, isLoading: nearbyLoading } = useQuery({
+    queryKey: ['nearbyPlaces', currentLocation?.latitude, currentLocation?.longitude],
+    queryFn: async () => {
+      if (!currentLocation) return null;
+      return apiService.searchPlaces({
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        maxDistanceKm: 10,
+        page: 0,
+        size: 10,
+        sort: 'distance',
+      });
+    },
+    enabled: !!currentLocation,
+  });
+
   const popularPlaces = popularPlacesResponse?.content || [];
+  const nearbyPlaces = nearbyPlacesResponse?.content || [];
   const topCategories = categories?.slice(0, 8) || [];
 
   useEffect(() => {
@@ -148,7 +166,36 @@ export default function ExploreScreen() {
           </View>
         )}
 
-        {/* Popular Places Section - Always Show Something */}
+        {/* Nearby Places Section - Horizontal Slider */}
+        {currentLocation && nearbyPlaces.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Feather name="map-pin" size={20} color={colors.primary} />
+                <Text style={styles.sectionTitle}>Near you</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('NearbyPlaces')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.seeAllText}>See all</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalScroll}
+            >
+              {nearbyPlaces.slice(0, 8).map((place: Place) => (
+                <View key={place.id} style={styles.horizontalCard}>
+                  <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Popular Places Section - Horizontal Slider */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
@@ -169,14 +216,17 @@ export default function ExploreScreen() {
               <LoadingIndicator message="Loading popular places..." />
             </View>
           ) : popularPlaces.length > 0 ? (
-            <FlatList
-              data={popularPlaces.slice(0, 5)}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <PlaceCard place={item} onPress={() => handlePlacePress(item)} />
-              )}
-              scrollEnabled={false}
-            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalScroll}
+            >
+              {popularPlaces.slice(0, 8).map((place: Place) => (
+                <View key={place.id} style={styles.horizontalCard}>
+                  <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
+                </View>
+              ))}
+            </ScrollView>
           ) : (
             <View style={styles.fallbackContainer}>
               <Feather name="map" size={48} color={colors.textTertiary} />
@@ -315,7 +365,8 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
   section: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -333,7 +384,9 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.text,
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    fontWeight: '700',
+    fontSize: 22,
   },
   seeAllText: {
     ...typography.buttonSmall,
@@ -343,11 +396,20 @@ const styles = StyleSheet.create({
   categoriesScroll: {
     paddingHorizontal: spacing.lg,
     paddingRight: spacing.md,
+    paddingBottom: spacing.sm,
   },
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: spacing.lg,
+  },
+  horizontalScroll: {
+    paddingHorizontal: spacing.lg,
+    paddingRight: spacing.md,
+  },
+  horizontalCard: {
+    width: 300,
+    marginRight: spacing.md,
   },
   loadingContainer: {
     padding: spacing.xl,

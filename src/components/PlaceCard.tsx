@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
     marginVertical: spacing.sm,
-    marginHorizontal: spacing.md,
+    marginHorizontal: 0, // Horizontal scroll'da margin ekleniyor
     ...shadowLg,
     overflow: 'hidden',
     maxWidth: '100%',

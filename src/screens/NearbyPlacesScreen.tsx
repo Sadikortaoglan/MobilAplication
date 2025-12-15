@@ -52,7 +52,30 @@ export default function NearbyPlacesScreen() {
     enabled: !!currentLocation,
   });
 
+  // Fallback: If no nearby places, fetch popular places
+  const { data: popularPlacesResponse } = useQuery({
+    queryKey: ['popularPlacesFallback', categoryId],
+    queryFn: async () => {
+      // Use Istanbul as default for fallback
+      const defaultLat = 41.0082;
+      const defaultLng = 28.9784;
+      return apiService.searchPlaces({
+        latitude: defaultLat,
+        longitude: defaultLng,
+        categoryId: categoryId ? Number(categoryId) : undefined,
+        maxDistanceKm: 50,
+        page: 0,
+        size: 10,
+        sort: 'rating',
+      });
+    },
+    enabled: !!placesResponse && (placesResponse?.content || []).length === 0,
+  });
+
   const places = placesResponse?.content || [];
+  const fallbackPlaces = popularPlacesResponse?.content || [];
+  const hasNearbyPlaces = places.length > 0;
+  const showFallback = !hasNearbyPlaces && fallbackPlaces.length > 0;
 
   useEffect(() => {
     if (!currentLocation) {
@@ -99,8 +122,8 @@ export default function NearbyPlacesScreen() {
     );
   }
 
-  // Smart empty state
-  if (places.length === 0) {
+  // Smart empty state with fallback
+  if (!hasNearbyPlaces && !isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
@@ -116,62 +139,84 @@ export default function NearbyPlacesScreen() {
           <View style={styles.backButton} />
         </View>
 
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconContainer}>
-            <Feather name="map" size={72} color={colors.primary} />
-          </View>
-          <Text style={styles.emptyTitle}>No places found nearby</Text>
-          <Text style={styles.emptySubtext}>
-            {categoryId
-              ? `We couldn't find any ${selectedCategory?.name?.toLowerCase() || 'places'} within ${searchDistance}km.`
-              : `We couldn't find any places within ${searchDistance}km.`}
-          </Text>
-
-          <View style={styles.suggestionsContainer}>
-            {searchDistance < 50 && (
-              <TouchableOpacity
-                style={styles.suggestionButton}
-                onPress={handleExpandDistance}
-                activeOpacity={0.8}
-              >
-                <View style={styles.suggestionIconContainer}>
-                  <Feather name="maximize-2" size={20} color={colors.primary} />
-                </View>
-                <Text style={styles.suggestionButtonText}>
-                  Expand search to {searchDistance + 10}km
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {categoryId && (
-              <TouchableOpacity
-                style={styles.suggestionButton}
-                onPress={handleChangeCategory}
-                activeOpacity={0.8}
-              >
-                <View style={styles.suggestionIconContainer}>
-                  <Feather name="filter" size={20} color={colors.primary} />
-                </View>
-                <Text style={styles.suggestionButtonText}>
-                  Try a different category
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.suggestionButton}
-              onPress={() => navigation.navigate('ExploreHome')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.suggestionIconContainer}>
-                <Feather name="compass" size={20} color={colors.primary} />
-              </View>
-              <Text style={styles.suggestionButtonText}>
-                Browse all places
+        {showFallback ? (
+          // Show fallback popular places instead of empty state
+          <View style={styles.fallbackSection}>
+            <View style={styles.fallbackHeader}>
+              <Feather name="info" size={20} color={colors.primary} />
+              <Text style={styles.fallbackHeaderText}>
+                No places found nearby. Here are some popular places:
               </Text>
-            </TouchableOpacity>
+            </View>
+            <FlatList
+              data={fallbackPlaces}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <PlaceCard place={item} onPress={() => handlePlacePress(item)} />
+              )}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+            />
           </View>
-        </View>
+        ) : (
+          // Empty state with suggestions
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Feather name="map" size={72} color={colors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>No places found nearby</Text>
+            <Text style={styles.emptySubtext}>
+              {categoryId
+                ? `We couldn't find any ${selectedCategory?.name?.toLowerCase() || 'places'} within ${searchDistance}km.`
+                : `We couldn't find any places within ${searchDistance}km.`}
+            </Text>
+
+            <View style={styles.suggestionsContainer}>
+              {searchDistance < 50 && (
+                <TouchableOpacity
+                  style={styles.suggestionButton}
+                  onPress={handleExpandDistance}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.suggestionIconContainer}>
+                    <Feather name="maximize-2" size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.suggestionButtonText}>
+                    Expand search to {searchDistance + 10}km
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {categoryId && (
+                <TouchableOpacity
+                  style={styles.suggestionButton}
+                  onPress={handleChangeCategory}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.suggestionIconContainer}>
+                    <Feather name="filter" size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.suggestionButtonText}>
+                    Try a different category
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.suggestionButton}
+                onPress={() => navigation.navigate('ExploreHome')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.suggestionIconContainer}>
+                  <Feather name="compass" size={20} color={colors.primary} />
+                </View>
+                <Text style={styles.suggestionButtonText}>
+                  Browse all places
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -341,5 +386,24 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     flex: 1,
+  },
+  fallbackSection: {
+    flex: 1,
+  },
+  fallbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.backgroundSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  fallbackHeaderText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flex: 1,
+    lineHeight: 20,
   },
 });
