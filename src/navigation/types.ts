@@ -17,6 +17,8 @@ export type ExploreStackParamList = {
     initialRating?: number; // For edit mode
     initialComment?: string; // For edit mode
   };
+  AddPlace: undefined;
+  AddPlaceSuccess: { placeId: number };
 };
 
 // Map Stack - Fullscreen map

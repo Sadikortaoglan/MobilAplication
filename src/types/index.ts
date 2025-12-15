@@ -50,6 +50,8 @@ export interface Place {
   updatedAt: string;
   distance?: number;
   photos: Photo[];
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string;
 }
 
 export interface Review {

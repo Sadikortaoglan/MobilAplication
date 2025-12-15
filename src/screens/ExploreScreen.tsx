@@ -140,6 +140,18 @@ export default function ExploreScreen() {
               <Text style={styles.primaryButtonText}>Explore nearby places</Text>
               <Feather name="chevron-right" size={20} color={colors.background} />
             </TouchableOpacity>
+            
+            {/* Add Place CTA */}
+            <TouchableOpacity
+              style={styles.addPlaceButton}
+              onPress={() => navigation.navigate('AddPlace')}
+              activeOpacity={0.8}
+            >
+              <Feather name="plus-circle" size={18} color={colors.background} />
+              <Text style={styles.addPlaceButtonText}>
+                Can't find a place? Add it
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 

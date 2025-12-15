@@ -13,6 +13,8 @@ import SettingsScreen from '../screens/SettingsScreen';
 import AboutScreen from '../screens/AboutScreen';
 import PlaceDetailScreen from '../screens/PlaceDetailScreen';
 import AddReviewScreen from '../screens/AddReviewScreen';
+import AddPlaceScreen from '../screens/AddPlaceScreen';
+import AddPlaceSuccessScreen from '../screens/AddPlaceSuccessScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import {
@@ -67,6 +69,22 @@ function ExploreStackNavigator() {
         options={{
           headerShown: true,
           title: 'Add Review',
+          presentation: 'card',
+        }}
+      />
+      <ExploreStack.Screen
+        name="AddPlace"
+        component={AddPlaceScreen}
+        options={{
+          headerShown: false,
+          presentation: 'card',
+        }}
+      />
+      <ExploreStack.Screen
+        name="AddPlaceSuccess"
+        component={AddPlaceSuccessScreen}
+        options={{
+          headerShown: false,
           presentation: 'card',
         }}
       />

@@ -150,6 +150,14 @@ export default function PlaceDetailScreen() {
   };
 
   const handleAddReview = () => {
+    if (isPending) {
+      Alert.alert(
+        'Place Pending Review',
+        'This place is currently under review. Reviews and favorites will be available once it\'s approved.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     if (!isAuthenticated) {
       handleAuthRequired('add a review');
       return;
@@ -196,6 +204,14 @@ export default function PlaceDetailScreen() {
   };
 
   const handleFavorite = async () => {
+    if (isPending) {
+      Alert.alert(
+        'Place Pending Review',
+        'This place is currently under review. Reviews and favorites will be available once it\'s approved.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     if (!isAuthenticated) {
       handleAuthRequired('favorite this place');
       return;
@@ -209,6 +225,14 @@ export default function PlaceDetailScreen() {
   };
 
   const handleVisited = async () => {
+    if (isPending) {
+      Alert.alert(
+        'Place Pending Review',
+        'This place is currently under review. Reviews and favorites will be available once it\'s approved.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     if (!isAuthenticated) {
       handleAuthRequired('mark this place as visited');
       return;
@@ -291,6 +315,31 @@ export default function PlaceDetailScreen() {
   }
 
   const photos = place.photos || [];
+  const isPending = place.status === 'PENDING';
+  const isRejected = place.status === 'REJECTED';
+  const isApproved = place.status === 'APPROVED' || !place.status; // Default to approved if no status
+
+  const getStatusBadge = () => {
+    if (isPending) {
+      return (
+        <View style={styles.statusBadge}>
+          <Feather name="clock" size={14} color={colors.warning} />
+          <Text style={styles.statusBadgeText}>Pending Review</Text>
+        </View>
+      );
+    }
+    if (isRejected) {
+      return (
+        <View style={[styles.statusBadge, styles.statusBadgeRejected]}>
+          <Feather name="x-circle" size={14} color={colors.error} />
+          <Text style={[styles.statusBadgeText, styles.statusBadgeTextRejected]}>
+            Rejected
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -308,9 +357,12 @@ export default function PlaceDetailScreen() {
             </View>
           </TouchableOpacity>
           <View style={styles.heroTextContainer}>
-            <Text style={styles.heroName} numberOfLines={2}>
-              {place.name}
-            </Text>
+            <View style={styles.heroTitleRow}>
+              <Text style={styles.heroName} numberOfLines={2}>
+                {place.name}
+              </Text>
+              {getStatusBadge()}
+            </View>
             {place.averageRating !== undefined && (
               <View style={styles.heroRating}>
                 <RatingStars rating={place.averageRating} size={18} />
@@ -322,6 +374,17 @@ export default function PlaceDetailScreen() {
           </View>
         </View>
       </View>
+
+      {/* Status Message for Rejected */}
+      {isRejected && place.rejectionReason && (
+        <View style={styles.rejectionCard}>
+          <Feather name="alert-circle" size={20} color={colors.error} />
+          <View style={styles.rejectionText}>
+            <Text style={styles.rejectionTitle}>This place was rejected</Text>
+            <Text style={styles.rejectionReason}>{place.rejectionReason}</Text>
+          </View>
+        </View>
+      )}
 
       {/* Sticky Quick Action Bar */}
       <View style={styles.quickActionBar}>
@@ -390,12 +453,25 @@ export default function PlaceDetailScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.quickActionButton}
+          style={[
+            styles.quickActionButton,
+            isPending && styles.quickActionButtonDisabled,
+          ]}
           onPress={handleAddReview}
           activeOpacity={0.7}
+          disabled={isPending}
         >
-          <Feather name="edit-3" size={18} color={colors.primary} />
-          <Text style={styles.quickActionText}>Review</Text>
+          <Feather 
+            name="edit-3" 
+            size={18} 
+            color={isPending ? colors.textTertiary : colors.primary} 
+          />
+          <Text style={[
+            styles.quickActionText,
+            isPending && styles.quickActionTextDisabled,
+          ]}>
+            Review
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -904,5 +980,63 @@ const styles = StyleSheet.create({
   retryButtonText: {
     ...typography.button,
     color: colors.background,
+  },
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.xl,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  statusBadgeRejected: {
+    borderColor: colors.error,
+  },
+  statusBadgeText: {
+    ...typography.caption,
+    color: colors.warning,
+    fontWeight: '600',
+    fontSize: 11,
+  },
+  statusBadgeTextRejected: {
+    color: colors.error,
+  },
+  rejectionCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    backgroundColor: `${colors.error}10`,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: `${colors.error}30`,
+  },
+  rejectionText: {
+    flex: 1,
+  },
+  rejectionTitle: {
+    ...typography.body,
+    color: colors.error,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  rejectionReason: {
+    ...typography.bodySmall,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  quickActionTextDisabled: {
+    color: colors.textTertiary,
   },
 });

@@ -173,6 +173,21 @@ class ApiService {
     return response.data;
   }
 
+  // Add Place (User Submission)
+  async addPlace(data: {
+    name: string;
+    categoryId: number;
+    address: string;
+    city: string;
+    district: string;
+    latitude: number;
+    longitude: number;
+    description?: string;
+  }) {
+    const response = await this.client.post('/api/places', data);
+    return response.data;
+  }
+
   // Favorites
   async toggleFavorite(placeId: number) {
     const response = await this.client.post(`/api/places/${placeId}/favorite`);
