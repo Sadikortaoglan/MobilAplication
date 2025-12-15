@@ -33,7 +33,8 @@ export default function AddReviewScreen() {
     queryFn: () => apiService.getUserReview(Number(placeId)),
     enabled: !!placeId && isAuthenticated && !!user?.id,
     retry: 1,
-    // Refetch when placeId or user changes
+    staleTime: 0, // Always consider stale - never use cache
+    cacheTime: 0, // Don't cache - always fetch fresh
   });
 
   // Reset when placeId or user changes
@@ -53,33 +54,40 @@ export default function AddReviewScreen() {
       // Success - navigate back (visual feedback is the navigation)
       navigation.goBack();
     },
-    onError: (error: any) => {
-      // Check if it's a 409 (already reviewed) or other error
+    onError: async (error: any) => {
+      // Check if it's a 409 (already reviewed)
       const status = error.response?.status;
       if (status === 409) {
-        // Backend confirms review exists - this is a state, not an error
-        refetchUserReview(); // Refresh state
-        // Don't throw - let ReviewForm handle gracefully
+        // Backend confirms review exists - refresh state immediately
+        await refetchUserReview();
+        // This will trigger a re-render showing the "already reviewed" screen
+        // Don't throw error - let the component handle the state change
         return;
       }
-      // Other errors - let ReviewForm handle
+      // Other errors - re-throw for ReviewForm to handle
       throw error;
     },
   });
 
   const handleSubmit = async (rating: number, comment: string) => {
-    // Final check before submitting
-    if (userReview) {
+    // Final check before submitting - refetch to ensure we have latest state
+    const { data: latestReview } = await refetchUserReview();
+    
+    // Check again after refetch
+    if (latestReview) {
       throw new Error('You have already reviewed this place.');
     }
     
     try {
       await mutation.mutateAsync({ rating, comment });
     } catch (error: any) {
-      // Re-throw with sanitized message
-      const message = error?.response?.status === 409
-        ? 'You have already reviewed this place.'
-        : sanitizeErrorMessage(error);
+      // If 409, mutation's onError already handled refetch
+      // Just re-throw with friendly message
+      if (error?.response?.status === 409) {
+        throw new Error('You have already reviewed this place.');
+      }
+      // Other errors - sanitize and show
+      const message = sanitizeErrorMessage(error);
       throw new Error(message);
     }
   };

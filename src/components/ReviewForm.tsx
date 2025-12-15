@@ -43,7 +43,17 @@ export default function ReviewForm({ onSubmit, onCancel }: ReviewFormProps) {
     } catch (error: any) {
       // Error message is already sanitized by AddReviewScreen
       const message = error?.message || error?.response?.data?.message || 'Failed to submit review. Please try again.';
-      Alert.alert('Error', message);
+      
+      // If it's a 409 (already reviewed), show friendly message
+      if (error?.response?.status === 409 || message.includes('already reviewed')) {
+        Alert.alert(
+          'Already Reviewed',
+          'You have already reviewed this place. Each place can only be reviewed once.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', message);
+      }
     } finally {
       setIsSubmitting(false);
     }
