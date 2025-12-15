@@ -24,14 +24,20 @@ export default function AddReviewScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<AddReviewScreenRouteProp>();
   const placeId = route.params?.placeId;
+  const reviewId = route.params?.reviewId;
+  const initialRating = route.params?.initialRating;
+  const initialComment = route.params?.initialComment;
+  const isEditMode = !!reviewId;
+  
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
 
   // ALWAYS check from backend - no caching, no assumptions
+  // Skip check in edit mode since we already have the review
   const { data: userReview, isLoading: reviewCheckLoading, refetch: refetchUserReview } = useQuery({
     queryKey: ['userReview', placeId, user?.id],
     queryFn: () => apiService.getUserReview(Number(placeId)),
-    enabled: !!placeId && isAuthenticated && !!user?.id,
+    enabled: !!placeId && isAuthenticated && !!user?.id && !isEditMode,
     retry: 1,
     staleTime: 0, // Always consider stale - never use cache
     cacheTime: 0, // Don't cache - always fetch fresh
@@ -39,14 +45,20 @@ export default function AddReviewScreen() {
 
   // Reset when placeId or user changes
   useEffect(() => {
-    if (placeId && user?.id) {
+    if (placeId && user?.id && !isEditMode) {
       refetchUserReview();
     }
-  }, [placeId, user?.id, refetchUserReview]);
+  }, [placeId, user?.id, refetchUserReview, isEditMode]);
 
+  // Create or update mutation
   const mutation = useMutation({
-    mutationFn: ({ rating, comment }: { rating: number; comment: string }) =>
-      apiService.addReview(Number(placeId), rating, comment),
+    mutationFn: ({ rating, comment }: { rating: number; comment: string }) => {
+      if (isEditMode && reviewId) {
+        return apiService.updateReview(Number(placeId), reviewId, rating, comment);
+      } else {
+        return apiService.addReview(Number(placeId), rating, comment);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews', placeId] });
       queryClient.invalidateQueries({ queryKey: ['place', placeId] });
@@ -55,14 +67,16 @@ export default function AddReviewScreen() {
       navigation.goBack();
     },
     onError: async (error: any) => {
-      // Check if it's a 409 (already reviewed)
-      const status = error.response?.status;
-      if (status === 409) {
-        // Backend confirms review exists - refresh state immediately
-        await refetchUserReview();
-        // This will trigger a re-render showing the "already reviewed" screen
-        // Don't throw error - let the component handle the state change
-        return;
+      // Check if it's a 409 (already reviewed) - only for create mode
+      if (!isEditMode) {
+        const status = error.response?.status;
+        if (status === 409) {
+          // Backend confirms review exists - refresh state immediately
+          await refetchUserReview();
+          // This will trigger a re-render showing the "already reviewed" screen
+          // Don't throw error - let the component handle the state change
+          return;
+        }
       }
       // Other errors - re-throw for ReviewForm to handle
       throw error;
@@ -70,12 +84,15 @@ export default function AddReviewScreen() {
   });
 
   const handleSubmit = async (rating: number, comment: string) => {
-    // Final check before submitting - refetch to ensure we have latest state
-    const { data: latestReview } = await refetchUserReview();
-    
-    // Check again after refetch
-    if (latestReview) {
-      throw new Error('You have already reviewed this place.');
+    // In edit mode, skip the check
+    if (!isEditMode) {
+      // Final check before submitting - refetch to ensure we have latest state
+      const { data: latestReview } = await refetchUserReview();
+      
+      // Check again after refetch
+      if (latestReview) {
+        throw new Error('You have already reviewed this place.');
+      }
     }
     
     try {
@@ -92,7 +109,7 @@ export default function AddReviewScreen() {
     }
   };
 
-  if (reviewCheckLoading) {
+  if (reviewCheckLoading && !isEditMode) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <LoadingIndicator message="Checking review status..." />
@@ -100,8 +117,8 @@ export default function AddReviewScreen() {
     );
   }
 
-  // Backend confirms user already reviewed - Friendly explanation
-  if (userReview) {
+  // Backend confirms user already reviewed - Friendly explanation (only in create mode)
+  if (userReview && !isEditMode) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.alreadyReviewedContainer}>
@@ -132,12 +149,20 @@ export default function AddReviewScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.formHeader}>
-          <Text style={styles.formTitle}>Share your experience</Text>
+          <Text style={styles.formTitle}>
+            {isEditMode ? 'Edit your review' : 'Share your experience'}
+          </Text>
           <Text style={styles.formSubtitle}>
-            Your review helps others discover great places
+            {isEditMode 
+              ? 'Update your review to help others discover great places'
+              : 'Your review helps others discover great places'}
           </Text>
         </View>
-        <ReviewForm onSubmit={handleSubmit} />
+        <ReviewForm 
+          onSubmit={handleSubmit}
+          initialRating={initialRating}
+          initialComment={initialComment}
+        />
       </ScrollView>
     </SafeAreaView>
   );

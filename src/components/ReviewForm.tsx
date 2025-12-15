@@ -15,11 +15,18 @@ import { colors, spacing, typography, borderRadius } from '../theme/designSystem
 interface ReviewFormProps {
   onSubmit: (rating: number, comment: string) => Promise<void>;
   onCancel?: () => void;
+  initialRating?: number;
+  initialComment?: string;
 }
 
-export default function ReviewForm({ onSubmit, onCancel }: ReviewFormProps) {
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
+export default function ReviewForm({ 
+  onSubmit, 
+  onCancel, 
+  initialRating = 0, 
+  initialComment = '' 
+}: ReviewFormProps) {
+  const [rating, setRating] = useState(initialRating);
+  const [comment, setComment] = useState(initialComment);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {

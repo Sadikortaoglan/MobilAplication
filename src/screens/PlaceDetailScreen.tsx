@@ -170,6 +170,55 @@ export default function PlaceDetailScreen() {
     }
   };
 
+  const handleEditReview = (review: Review) => {
+    if (!isAuthenticated) {
+      handleAuthRequired('edit your review');
+      return;
+    }
+
+    try {
+      navigation.navigate('AddReview', { 
+        placeId: place.id,
+        reviewId: review.id,
+        initialRating: review.rating,
+        initialComment: review.comment,
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Could not open review editor. Please try again.');
+    }
+  };
+
+  // Delete review mutation
+  const deleteReviewMutation = useMutation({
+    mutationFn: (reviewId: number) => apiService.deleteReview(Number(placeId), reviewId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', placeId] });
+      queryClient.invalidateQueries({ queryKey: ['place', placeId] });
+      queryClient.invalidateQueries({ queryKey: ['userReview', placeId, user?.id] });
+    },
+    onError: (error: any) => {
+      const message = sanitizeErrorMessage(error);
+      Alert.alert('Error', message);
+    },
+  });
+
+  const handleDeleteReview = (review: Review) => {
+    Alert.alert(
+      'Delete Review',
+      'Are you sure you want to delete your review? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteReviewMutation.mutate(review.id);
+          },
+        },
+      ]
+    );
+  };
+
   const handleFavorite = async () => {
     if (!isAuthenticated) {
       handleAuthRequired('favorite this place');
@@ -373,6 +422,25 @@ export default function PlaceDetailScreen() {
                     day: 'numeric',
                   })}
                 </Text>
+                {/* Edit/Delete Actions */}
+                <View style={styles.reviewActions}>
+                  <TouchableOpacity
+                    style={styles.editReviewButton}
+                    onPress={() => handleEditReview(userReview)}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="edit-2" size={16} color={colors.primary} />
+                    <Text style={styles.editReviewButtonText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteReviewButton}
+                    onPress={() => handleDeleteReview(userReview)}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="trash-2" size={16} color={colors.error} />
+                    <Text style={styles.deleteReviewButtonText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <TouchableOpacity
@@ -607,6 +675,48 @@ const styles = StyleSheet.create({
   userReviewDate: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  editReviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.background,
+    flex: 1,
+  },
+  editReviewButtonText: {
+    ...typography.buttonSmall,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  deleteReviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: colors.background,
+    flex: 1,
+  },
+  deleteReviewButtonText: {
+    ...typography.buttonSmall,
+    color: colors.error,
+    fontWeight: '600',
   },
   addReviewButtonText: {
     ...typography.button,

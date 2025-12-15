@@ -232,6 +232,19 @@ class ApiService {
     });
     return response.data;
   }
+
+  async updateReview(placeId: number, reviewId: number, rating: number, comment: string) {
+    const response = await this.client.put(`/api/places/${placeId}/reviews/${reviewId}`, {
+      rating,
+      comment,
+    });
+    return response.data;
+  }
+
+  async deleteReview(placeId: number, reviewId: number) {
+    const response = await this.client.delete(`/api/places/${placeId}/reviews/${reviewId}`);
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();

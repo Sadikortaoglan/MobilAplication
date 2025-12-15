@@ -11,7 +11,12 @@ export type ExploreStackParamList = {
   ExploreHome: undefined;
   NearbyPlaces: { categoryId?: number };
   PlaceDetail: { placeId: number };
-  AddReview: { placeId: number };
+  AddReview: { 
+    placeId: number;
+    reviewId?: number; // For edit mode
+    initialRating?: number; // For edit mode
+    initialComment?: string; // For edit mode
+  };
 };
 
 // Map Stack - Fullscreen map
