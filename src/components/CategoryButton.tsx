@@ -3,10 +3,9 @@ import {
   TouchableOpacity,
   Text,
   StyleSheet,
-  View,
-  ActivityIndicator,
 } from 'react-native';
 import { Category } from '../types';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 interface CategoryButtonProps {
   category: Category;
@@ -23,46 +22,40 @@ export default function CategoryButton({
     <TouchableOpacity
       style={[styles.button, isSelected && styles.selectedButton]}
       onPress={onPress}
+      activeOpacity={0.7}
     >
-      <View style={styles.content}>
-        <Text style={[styles.text, isSelected && styles.selectedText]}>
-          {category.name}
-        </Text>
-      </View>
+      <Text style={[styles.text, isSelected && styles.selectedText]} numberOfLines={2}>
+        {category.name}
+      </Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 16,
-    margin: 8,
-    minWidth: 120,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    margin: spacing.xs,
+    minWidth: 100,
+    maxWidth: '45%',
     alignItems: 'center',
-    borderWidth: 2,
+    justifyContent: 'center',
+    borderWidth: 1.5,
     borderColor: 'transparent',
+    flex: 1,
   },
   selectedButton: {
-    backgroundColor: '#007AFF',
-    borderColor: '#0051D5',
-  },
-  content: {
-    alignItems: 'center',
-  },
-  icon: {
-    fontSize: 32,
-    marginBottom: 8,
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   text: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
+    ...typography.buttonSmall,
+    color: colors.text,
     textAlign: 'center',
   },
   selectedText: {
-    color: '#FFF',
+    color: colors.background,
   },
 });
-

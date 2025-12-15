@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { StyleSheet, View, Platform } from 'react-native';
+import MapView, { Marker, UrlTile } from 'react-native-maps';
 import { Place, Location } from '../types';
 
 interface CustomMapViewProps {
@@ -8,6 +8,9 @@ interface CustomMapViewProps {
   currentLocation: Location | null;
   onMarkerPress: (place: Place) => void;
 }
+
+// OpenStreetMap tile server URL
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 export default function CustomMapView({
   places,
@@ -22,17 +25,16 @@ export default function CustomMapView({
         longitudeDelta: 0.05,
       }
     : {
-        latitude: 37.78825,
-        longitude: -122.4324,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
+        latitude: 41.0082,
+        longitude: 28.9784,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
       };
 
   return (
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
         initialRegion={initialRegion}
         region={currentLocation ? {
           latitude: currentLocation.latitude,
@@ -41,8 +43,23 @@ export default function CustomMapView({
           longitudeDelta: 0.05,
         } : undefined}
         showsUserLocation={!!currentLocation}
-        showsMyLocationButton={true}
+        showsMyLocationButton={Platform.OS === 'android'}
+        mapType={Platform.OS === 'ios' ? 'standard' : 'none'}
+        showsCompass={true}
+        showsScale={false}
+        rotateEnabled={true}
+        scrollEnabled={true}
+        zoomEnabled={true}
+        pitchEnabled={true}
       >
+        {/* OpenStreetMap tiles */}
+        <UrlTile
+          urlTemplate={OSM_TILE_URL}
+          maximumZ={19}
+          flipY={false}
+        />
+        
+        {/* User location marker */}
         {currentLocation && (
           <Marker
             coordinate={{
@@ -50,9 +67,12 @@ export default function CustomMapView({
               longitude: currentLocation.longitude,
             }}
             title="Your Location"
-            pinColor="blue"
+            pinColor="#007AFF"
+            identifier="user-location"
           />
         )}
+        
+        {/* Place markers */}
         {places.map((place) => (
           <Marker
             key={place.id}
@@ -63,6 +83,7 @@ export default function CustomMapView({
             title={place.name}
             description={place.address}
             onPress={() => onMarkerPress(place)}
+            pinColor="#FF3B30"
           />
         ))}
       </MapView>
@@ -73,10 +94,10 @@ export default function CustomMapView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
   },
   map: {
     width: '100%',
     height: '100%',
   },
 });
-

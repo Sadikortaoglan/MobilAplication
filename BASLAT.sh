@@ -18,3 +18,4 @@ echo ""
 
 npx expo start --web
 
+

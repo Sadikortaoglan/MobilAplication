@@ -46,13 +46,36 @@ const storage = getStorage();
 const getApiUrl = () => {
   // Önce .env dosyasından (babel-plugin-inline-dotenv ile)
   if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+    let url = process.env.EXPO_PUBLIC_API_URL;
+    // Mobil cihazda localhost yerine bilgisayarın IP'sini kullan
+    if (Platform.OS !== 'web' && url.includes('localhost')) {
+      // Expo development server'ın IP'sini al
+      const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
+      if (expoHost && expoHost !== 'localhost' && expoHost !== '127.0.0.1') {
+        url = url.replace('localhost', expoHost).replace('127.0.0.1', expoHost);
+      }
+    }
+    return url;
   }
   // Sonra app.json'dan (Constants.expoConfig.extra)
   if (Constants.expoConfig?.extra?.apiUrl) {
-    return Constants.expoConfig.extra.apiUrl;
+    let url = Constants.expoConfig.extra.apiUrl;
+    // Mobil cihazda localhost yerine bilgisayarın IP'sini kullan
+    if (Platform.OS !== 'web' && url.includes('localhost')) {
+      const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
+      if (expoHost && expoHost !== 'localhost' && expoHost !== '127.0.0.1') {
+        url = url.replace('localhost', expoHost).replace('127.0.0.1', expoHost);
+      }
+    }
+    return url;
   }
-  // Varsayılan değer
+  // Varsayılan değer - mobil için IP'yi otomatik bul
+  if (Platform.OS !== 'web') {
+    const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
+    if (expoHost && expoHost !== 'localhost' && expoHost !== '127.0.0.1') {
+      return `http://${expoHost}:8080`;
+    }
+  }
   return 'http://localhost:8080';
 };
 
@@ -150,12 +173,56 @@ class ApiService {
     return response.data;
   }
 
+  // Favorites
+  async toggleFavorite(placeId: number) {
+    const response = await this.client.post(`/api/places/${placeId}/favorite`);
+    return response.data;
+  }
+
+  async removeFavorite(placeId: number) {
+    const response = await this.client.delete(`/api/places/${placeId}/favorite`);
+    return response.data;
+  }
+
+  async getFavorites() {
+    const response = await this.client.get('/api/user/favorites');
+    return response.data;
+  }
+
+  // Visited
+  async toggleVisited(placeId: number) {
+    const response = await this.client.post(`/api/places/${placeId}/visited`);
+    return response.data;
+  }
+
+  async removeVisited(placeId: number) {
+    const response = await this.client.delete(`/api/places/${placeId}/visited`);
+    return response.data;
+  }
+
+  async getVisited() {
+    const response = await this.client.get('/api/user/visited');
+    return response.data;
+  }
+
   // Reviews
   async getPlaceReviews(placeId: number, page: number = 0, size: number = 20) {
     const response = await this.client.get(`/api/places/${placeId}/reviews`, {
       params: { page, size },
     });
     return response.data;
+  }
+
+  async getUserReview(placeId: number) {
+    try {
+      const response = await this.client.get(`/api/places/${placeId}/reviews/me`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null; // User hasn't reviewed yet
+      }
+      throw error;
+    }
   }
 
   async addReview(placeId: number, rating: number, comment: string) {
@@ -168,4 +235,3 @@ class ApiService {
 }
 
 export const apiService = new ApiService();
-

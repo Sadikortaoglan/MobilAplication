@@ -2,63 +2,72 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Review } from '../types';
 import RatingStars from './RatingStars';
+import { colors, spacing, typography, borderRadius, shadowSm } from '../theme/designSystem';
 
 interface ReviewCardProps {
   review: Review;
 }
 
 export default function ReviewCard({ review }: ReviewCardProps) {
-  const date = new Date(review.createdAt).toLocaleDateString();
+  const date = new Date(review.createdAt).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.userName}>{review.user.displayName}</Text>
+        <Text style={styles.userName} numberOfLines={1}>
+          {review.user.displayName}
+        </Text>
         <Text style={styles.date}>{date}</Text>
       </View>
       <View style={styles.ratingContainer}>
-        <RatingStars rating={review.rating} size={16} />
+        <RatingStars rating={review.rating} size={14} />
       </View>
-      <Text style={styles.comment}>{review.comment}</Text>
+      <Text style={styles.comment} numberOfLines={10}>
+        {review.comment}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFF',
-    borderRadius: 8,
-    padding: 12,
-    marginVertical: 8,
-    marginHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginVertical: spacing.xs,
+    marginHorizontal: spacing.md,
+    ...shadowSm,
+    maxWidth: '100%',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#000',
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.text,
+    flexShrink: 1,
   },
   date: {
-    fontSize: 12,
-    color: '#666',
+    ...typography.caption,
+    color: colors.textSecondary,
+    flexShrink: 0,
   },
   ratingContainer: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   comment: {
-    fontSize: 14,
-    color: '#333',
+    ...typography.bodySmall,
+    color: colors.text,
     lineHeight: 20,
   },
 });
-

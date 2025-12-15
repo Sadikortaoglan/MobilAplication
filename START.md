@@ -37,3 +37,4 @@ Veya tarayıcıda şu adrese gidin:
 - Eğer modül bulunamadı hatası alırsanız: `npm install` çalıştırın
 - Backend bağlantısı için: Backend'iniz `http://localhost:8080` adresinde çalışıyor olmalı
 
+

@@ -5,8 +5,8 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api';
@@ -68,22 +68,31 @@ export default function NearbyScreen() {
   };
 
   if (isLoading && !currentLocation) {
-    return <LoadingIndicator message="Getting your location..." />;
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <LoadingIndicator message="Getting your location..." />
+      </SafeAreaView>
+    );
   }
 
   if (!currentLocation) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Location permission required</Text>
-        <TouchableOpacity style={styles.button} onPress={fetchLocation}>
-          <Text style={styles.buttonText}>Enable Location</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Location permission required</Text>
+          <Text style={styles.errorSubtext}>
+            We need your location to find nearby places
+          </Text>
+          <TouchableOpacity style={styles.button} onPress={fetchLocation}>
+            <Text style={styles.buttonText}>Enable Location</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View style={styles.toggleContainer}>
           <TouchableOpacity
@@ -126,7 +135,7 @@ export default function NearbyScreen() {
           onMarkerPress={handleMarkerPress}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -135,9 +144,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
   header: {
     backgroundColor: '#FFF',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
@@ -166,6 +182,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingVertical: 8,
+    paddingBottom: 20,
   },
   emptyContainer: {
     flex: 1,
@@ -176,12 +193,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#666',
+    textAlign: 'center',
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   button: {
     backgroundColor: '#007AFF',

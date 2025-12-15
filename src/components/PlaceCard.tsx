@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Place } from '../types';
 import RatingStars from './RatingStars';
+import { colors, spacing, typography, borderRadius, shadowLg } from '../theme/designSystem';
 
 interface PlaceCardProps {
   place: Place;
@@ -16,27 +17,37 @@ interface PlaceCardProps {
 
 export default function PlaceCard({ place, onPress }: PlaceCardProps) {
   const coverPhoto = place.photos?.find((photo) => photo.isCover) || place.photos?.[0];
-  
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
       {coverPhoto && (
-        <Image source={{ uri: coverPhoto.url }} style={styles.image} />
+        <Image
+          source={{ uri: coverPhoto.url }}
+          style={styles.image}
+          resizeMode="cover"
+        />
       )}
       <View style={styles.content}>
-        <Text style={styles.name}>{place.name}</Text>
-        <Text style={styles.address} numberOfLines={1}>
+        <Text style={styles.name} numberOfLines={2}>
+          {place.name}
+        </Text>
+        <Text style={styles.address} numberOfLines={1} ellipsizeMode="tail">
           {place.address}
         </Text>
         {place.averageRating !== undefined && (
           <View style={styles.ratingContainer}>
-            <RatingStars rating={place.averageRating} size={16} />
-            <Text style={styles.ratingText}>
+            <RatingStars rating={place.averageRating} size={14} />
+            <Text style={styles.ratingText} numberOfLines={1}>
               {place.averageRating.toFixed(1)} ({place.reviewCount || 0})
             </Text>
           </View>
         )}
         {place.distance !== undefined && (
-          <Text style={styles.distance}>
+          <Text style={styles.distance} numberOfLines={1}>
             {place.distance < 1
               ? `${(place.distance * 1000).toFixed(0)}m away`
               : `${place.distance.toFixed(1)}km away`}
@@ -49,50 +60,56 @@ export default function PlaceCard({ place, onPress }: PlaceCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    marginVertical: 8,
-    marginHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    marginVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+    ...shadowLg,
     overflow: 'hidden',
+    maxWidth: '100%',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   image: {
     width: '100%',
-    height: 150,
-    backgroundColor: '#E5E5E5',
+    height: 200,
+    backgroundColor: colors.backgroundSecondary,
   },
   content: {
-    padding: 12,
+    padding: spacing.lg,
   },
   name: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.xs,
+    flexShrink: 1,
+    fontWeight: '600',
+    fontSize: 20,
   },
   address: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    flexShrink: 1,
+    lineHeight: 20,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   ratingText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    flexShrink: 1,
+    fontWeight: '500',
   },
   distance: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 4,
+    ...typography.bodySmall,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    fontWeight: '600',
   },
 });
-

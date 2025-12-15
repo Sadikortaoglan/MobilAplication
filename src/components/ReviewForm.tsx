@@ -6,8 +6,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import RatingStars from './RatingStars';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 interface ReviewFormProps {
   onSubmit: (rating: number, comment: string) => Promise<void>;
@@ -21,21 +24,26 @@ export default function ReviewForm({ onSubmit, onCancel }: ReviewFormProps) {
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      Alert.alert('Error', 'Please select a rating');
+      Alert.alert('Rating Required', 'Please select a rating');
       return;
     }
     if (comment.trim().length === 0) {
-      Alert.alert('Error', 'Please enter a comment');
+      Alert.alert('Comment Required', 'Please enter a comment');
+      return;
+    }
+    if (comment.trim().length < 10) {
+      Alert.alert('Comment Too Short', 'Please write at least 10 characters');
       return;
     }
 
     try {
       setIsSubmitting(true);
       await onSubmit(rating, comment);
-      setRating(0);
-      setComment('');
+      // Success - form will be reset by parent
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to submit review');
+      // Error message is already sanitized by AddReviewScreen
+      const message = error?.message || error?.response?.data?.message || 'Failed to submit review. Please try again.';
+      Alert.alert('Error', message);
     } finally {
       setIsSubmitting(false);
     }
@@ -43,44 +51,83 @@ export default function ReviewForm({ onSubmit, onCancel }: ReviewFormProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Rating</Text>
+      <Text style={styles.label}>How was your experience?</Text>
+      <Text style={styles.labelHint}>Tap the stars to rate</Text>
       <View style={styles.ratingContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
           <TouchableOpacity
             key={star}
             onPress={() => setRating(star)}
             style={styles.starButton}
+            disabled={isSubmitting}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.star, star <= rating && styles.starSelected]}>
-              ★
-            </Text>
+            <Feather
+              name={star <= rating ? 'star' : 'star'}
+              size={36}
+              color={star <= rating ? colors.warning : colors.border}
+              fill={star <= rating ? colors.warning : 'transparent'}
+            />
           </TouchableOpacity>
         ))}
       </View>
-      <Text style={styles.label}>Comment</Text>
+      {rating > 0 && (
+        <Text style={styles.ratingFeedback}>
+          {rating === 5 ? 'Excellent!' : rating === 4 ? 'Great!' : rating === 3 ? 'Good' : rating === 2 ? 'Fair' : 'Poor'}
+        </Text>
+      )}
+      <Text style={styles.label}>Share your thoughts</Text>
+      <Text style={styles.labelHint}>Help others by describing your experience</Text>
       <TextInput
         style={styles.input}
         multiline
-        numberOfLines={4}
-        placeholder="Write your review..."
+        numberOfLines={6}
+        placeholder="Share your experience..."
+        placeholderTextColor={colors.textTertiary}
         value={comment}
         onChangeText={setComment}
         textAlignVertical="top"
+        editable={!isSubmitting}
+        maxLength={500}
       />
+      <View style={styles.charCountContainer}>
+        <Text style={styles.charCount}>
+          {comment.length}/500 characters
+        </Text>
+        {comment.length >= 10 && (
+          <View style={styles.checkIcon}>
+            <Feather name="check" size={14} color={colors.success} />
+          </View>
+        )}
+      </View>
       <View style={styles.buttonContainer}>
         {onCancel && (
-          <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={onCancel}
+            disabled={isSubmitting}
+            activeOpacity={0.7}
+          >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+          style={[
+            styles.submitButton,
+            (isSubmitting || rating === 0 || comment.trim().length < 10) && styles.submitButtonDisabled,
+          ]}
           onPress={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || rating === 0 || comment.trim().length < 10}
+          activeOpacity={0.8}
         >
-          <Text style={styles.submitButtonText}>
-            {isSubmitting ? 'Submitting...' : 'Submit Review'}
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator size="small" color={colors.background} />
+          ) : (
+            <>
+              <Feather name="send" size={18} color={colors.background} />
+              <Text style={styles.submitButtonText}>Submit Review</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -89,66 +136,101 @@ export default function ReviewForm({ onSubmit, onCancel }: ReviewFormProps) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: spacing.lg,
+    maxWidth: '100%',
   },
   label: {
-    fontSize: 16,
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.xs,
     fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
+  },
+  labelHint: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
   },
   ratingContainer: {
     flexDirection: 'row',
-    marginBottom: 24,
+    marginBottom: spacing.md,
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    justifyContent: 'center',
+  },
+  ratingFeedback: {
+    ...typography.body,
+    color: colors.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: spacing.lg,
   },
   starButton: {
-    marginRight: 8,
-  },
-  star: {
-    fontSize: 32,
-    color: '#E5E5E5',
-  },
-  starSelected: {
-    color: '#FFD700',
+    padding: spacing.xs,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 100,
-    marginBottom: 16,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    ...typography.body,
+    color: colors.text,
+    minHeight: 120,
+    marginBottom: spacing.xs,
+    width: '100%',
+    maxWidth: '100%',
+    backgroundColor: colors.background,
+  },
+  charCountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  charCount: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  checkIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: `${colors.success}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 12,
+    gap: spacing.md,
   },
   cancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: colors.border,
+    backgroundColor: colors.background,
   },
   cancelButtonText: {
-    fontSize: 16,
-    color: '#666',
+    ...typography.button,
+    color: colors.textSecondary,
   },
   submitButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    backgroundColor: '#007AFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary,
+    gap: spacing.xs,
   },
   submitButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+    backgroundColor: colors.textTertiary,
+    opacity: 0.5,
   },
   submitButtonText: {
-    fontSize: 16,
-    color: '#FFF',
-    fontWeight: '600',
+    ...typography.button,
+    color: colors.background,
   },
 });
-

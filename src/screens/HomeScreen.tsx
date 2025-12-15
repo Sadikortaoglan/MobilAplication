@@ -3,10 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api';
@@ -27,6 +26,7 @@ export default function HomeScreen() {
   });
 
   useEffect(() => {
+    // Soft location request - non-blocking
     if (!currentLocation) {
       fetchLocation();
     }
@@ -53,16 +53,24 @@ export default function HomeScreen() {
   const displayCategories = categories ? flattenCategories(categories) : [];
 
   if (isLoading) {
-    return <LoadingIndicator message="Loading categories..." />;
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <LoadingIndicator message="Loading categories..." />
+      </SafeAreaView>
+    );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>FindSpot</Text>
         <Text style={styles.subtitle}>Discover places near you</Text>
       </View>
-      <ScrollView style={styles.content}>
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.sectionTitle}>Categories</Text>
         <View style={styles.categoriesGrid}>
           {displayCategories.map((category: Category) => (
@@ -74,7 +82,7 @@ export default function HomeScreen() {
           ))}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -84,35 +92,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   header: {
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#000',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
   },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#000',
-    margin: 16,
-    marginBottom: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 12,
   },
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 8,
+    justifyContent: 'flex-start',
   },
 });
 

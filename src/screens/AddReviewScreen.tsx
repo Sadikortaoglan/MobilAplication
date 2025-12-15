@@ -1,22 +1,47 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
-  View,
   StyleSheet,
   ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Feather } from '@expo/vector-icons';
 import { apiService } from '../services/api';
+import { useAuthStore } from '../store/authStore';
 import ReviewForm from '../components/ReviewForm';
-import { RootStackParamList } from '../navigation/types';
+import LoadingIndicator from '../components/LoadingIndicator';
+import { ExploreStackParamList } from '../navigation/types';
+import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
+import { sanitizeErrorMessage } from '../utils/errorHandler';
 
-type AddReviewScreenRouteProp = RouteProp<RootStackParamList, 'AddReview'>;
+type AddReviewScreenRouteProp = RouteProp<ExploreStackParamList, 'AddReview'>;
 
 export default function AddReviewScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<AddReviewScreenRouteProp>();
   const placeId = route.params?.placeId;
+  const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
+
+  // ALWAYS check from backend - no caching, no assumptions
+  const { data: userReview, isLoading: reviewCheckLoading, refetch: refetchUserReview } = useQuery({
+    queryKey: ['userReview', placeId, user?.id],
+    queryFn: () => apiService.getUserReview(Number(placeId)),
+    enabled: !!placeId && isAuthenticated && !!user?.id,
+    retry: 1,
+    // Refetch when placeId or user changes
+  });
+
+  // Reset when placeId or user changes
+  useEffect(() => {
+    if (placeId && user?.id) {
+      refetchUserReview();
+    }
+  }, [placeId, user?.id, refetchUserReview]);
 
   const mutation = useMutation({
     mutationFn: ({ rating, comment }: { rating: number; comment: string }) =>
@@ -24,25 +49,158 @@ export default function AddReviewScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews', placeId] });
       queryClient.invalidateQueries({ queryKey: ['place', placeId] });
+      queryClient.invalidateQueries({ queryKey: ['userReview', placeId, user?.id] });
       navigation.goBack();
+    },
+    onError: (error: any) => {
+      // Check if it's a 409 (already reviewed) or other error
+      const status = error.response?.status;
+      if (status === 409) {
+        // Backend confirms review exists
+        refetchUserReview(); // Refresh state
+        throw new Error('You have already reviewed this place.');
+      }
+      // Other errors handled in ReviewForm
+      throw error;
     },
   });
 
   const handleSubmit = async (rating: number, comment: string) => {
-    await mutation.mutateAsync({ rating, comment });
+    // Final check before submitting
+    if (userReview) {
+      throw new Error('You have already reviewed this place.');
+    }
+    
+    try {
+      await mutation.mutateAsync({ rating, comment });
+    } catch (error: any) {
+      // Re-throw with sanitized message
+      const message = error?.response?.status === 409
+        ? 'You have already reviewed this place.'
+        : sanitizeErrorMessage(error);
+      throw new Error(message);
+    }
   };
 
+  if (reviewCheckLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <LoadingIndicator message="Checking review status..." />
+      </SafeAreaView>
+    );
+  }
+
+  // Backend confirms user already reviewed - Friendly explanation
+  if (userReview) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.alreadyReviewedContainer}>
+          <View style={styles.successIconContainer}>
+            <Feather name="check-circle" size={72} color={colors.success} />
+          </View>
+          <Text style={styles.alreadyReviewedTitle}>You've already reviewed this place</Text>
+          <Text style={styles.alreadyReviewedText}>
+            Thank you for your contribution! Each place can only be reviewed once to keep feedback authentic and helpful.
+          </Text>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
-      <ReviewForm onSubmit={handleSubmit} />
-    </ScrollView>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.formHeader}>
+          <Text style={styles.formTitle}>Share your experience</Text>
+          <Text style={styles.formSubtitle}>
+            Your review helps others discover great places
+          </Text>
+        </View>
+        <ReviewForm onSubmit={handleSubmit} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  formHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  formTitle: {
+    ...typography.h2,
+    color: colors.text,
+    marginBottom: spacing.xs,
+    fontWeight: '700',
+  },
+  formSubtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  alreadyReviewedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  successIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: `${colors.success}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  alreadyReviewedTitle: {
+    ...typography.h2,
+    color: colors.text,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  alreadyReviewedText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 24,
+    paddingHorizontal: spacing.lg,
+  },
+  backButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    ...shadowMd,
+    minWidth: 200,
+  },
+  backButtonText: {
+    ...typography.button,
+    color: colors.background,
   },
 });
-

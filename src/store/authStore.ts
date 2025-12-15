@@ -51,12 +51,20 @@ interface AuthState {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  showAuthModal: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
+
+  showAuthModal: () => {
+    // This will be set by AppNavigator
+    if ((global as any).showAuthModal) {
+      (global as any).showAuthModal();
+    }
+  },
 
   login: async (email: string, password: string) => {
     try {
@@ -67,6 +75,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+      // Close auth modal after successful login
+      if ((global as any).hideAuthModal) {
+        (global as any).hideAuthModal();
+      }
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -82,6 +94,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+      // Close auth modal after successful registration
+      if ((global as any).hideAuthModal) {
+        (global as any).hideAuthModal();
+      }
     } catch (error) {
       set({ isLoading: false });
       throw error;
