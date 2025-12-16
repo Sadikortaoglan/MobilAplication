@@ -170,8 +170,22 @@ class ApiService {
   }
 
   async getPlaceById(id: number) {
-    const response = await this.client.get(`/api/places/${id}`);
-    return response.data;
+    try {
+      const response = await this.client.get(`/api/places/${id}`);
+      return response.data;
+    } catch (error: any) {
+      // Log detailed error for debugging
+      if (__DEV__) {
+        console.error('❌ Get Place By ID Error:', {
+          placeId: id,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message,
+        });
+      }
+      throw error;
+    }
   }
 
   // Add Place (User Submission)

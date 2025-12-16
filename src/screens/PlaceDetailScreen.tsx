@@ -36,9 +36,31 @@ export default function PlaceDetailScreen() {
 
   const { data: place, isLoading: placeLoading, error: placeError } = useQuery({
     queryKey: ['place', placeId],
-    queryFn: () => apiService.getPlaceById(Number(placeId)),
+    queryFn: async () => {
+      try {
+        return await apiService.getPlaceById(Number(placeId));
+      } catch (error: any) {
+        // Log error details for debugging
+        if (__DEV__) {
+          console.error('❌ Place Detail Query Error:', {
+            placeId,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    },
     enabled: !!placeId,
-    retry: 2,
+    retry: (failureCount, error: any) => {
+      // Don't retry on 404 or 403
+      if (error.response?.status === 404 || error.response?.status === 403) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   const { data: reviewsResponse, isLoading: reviewsLoading } = useQuery({
@@ -301,15 +323,44 @@ export default function PlaceDetailScreen() {
   }
 
   if (placeError || !place) {
+    // Extract error details
+    const errorStatus = (placeError as any)?.response?.status;
+    const errorData = (placeError as any)?.response?.data;
+    const errorMessage = errorData?.message || (placeError as any)?.message;
+
+    // Determine error message based on status code
+    let errorTitle = 'Could not load place';
+    let errorSubtext = 'An error occurred. Please try again.';
+
+    if (errorStatus === 404) {
+      errorTitle = 'Place not found';
+      errorSubtext = 'This place may have been removed or does not exist.';
+    } else if (errorStatus === 403) {
+      errorTitle = 'Place awaiting approval';
+      errorSubtext = errorMessage || 'This place is currently under review and not yet available.';
+    } else if (errorStatus === 500) {
+      errorTitle = 'Server error';
+      errorSubtext = 'The server encountered an error. Please try again later.';
+    } else if (errorMessage && errorMessage !== 'Network Error') {
+      errorSubtext = errorMessage;
+    }
+
     return (
       <View style={styles.container}>
         <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.errorContainer}>
-            <Feather name="alert-circle" size={48} color={colors.error} />
-            <Text style={styles.errorText}>Could not load place</Text>
-            <Text style={styles.errorSubtext}>
-              {placeError ? 'An error occurred. Please try again.' : 'Place not found.'}
-            </Text>
+            <Feather 
+              name={errorStatus === 404 ? "map-pin" : errorStatus === 403 ? "clock" : "alert-circle"} 
+              size={48} 
+              color={colors.error} 
+            />
+            <Text style={styles.errorText}>{errorTitle}</Text>
+            <Text style={styles.errorSubtext}>{errorSubtext}</Text>
+            {__DEV__ && placeError && (
+              <Text style={styles.errorDebugText}>
+                Status: {errorStatus || 'N/A'} | {errorMessage || 'No message'}
+              </Text>
+            )}
             <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
               <Text style={styles.retryButtonText}>Go Back</Text>
             </TouchableOpacity>
@@ -1117,5 +1168,12 @@ const styles = StyleSheet.create({
   },
   quickActionTextDisabled: {
     color: colors.textTertiary,
+  },
+  errorDebugText: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    fontSize: 11,
   },
 });
