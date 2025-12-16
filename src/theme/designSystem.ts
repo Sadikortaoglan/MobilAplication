@@ -94,109 +94,81 @@ export const borderRadius = {
 };
 
 // Platform-safe shadow helpers
-export const shadowSm = Platform.select({
-  ios: {
+// Using explicit function to guarantee non-undefined return
+const createShadow = (ios: any, android: any, web?: any) => {
+  const platform = Platform.OS;
+  if (platform === 'ios') {
+    return ios;
+  }
+  if (platform === 'android') {
+    return android;
+  }
+  if (platform === 'web' && web) {
+    return web;
+  }
+  // Default fallback - always return valid object
+  return ios;
+};
+
+export const shadowSm = createShadow(
+  {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
   },
-  android: {
+  {
     elevation: 2,
   },
-  web: {
+  {
     boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
-  },
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-}) || {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.05,
-  shadowRadius: 2,
-};
+  }
+);
 
-export const shadowMd = Platform.select({
-  ios: {
+export const shadowMd = createShadow(
+  {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  android: {
+  {
     elevation: 3,
   },
-  web: {
+  {
     boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-  },
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-}) || {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-};
+  }
+);
 
-export const shadowLg = Platform.select({
-  ios: {
+export const shadowLg = createShadow(
+  {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
   },
-  android: {
+  {
     elevation: 5,
   },
-  web: {
+  {
     boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)',
-  },
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-}) || {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.15,
-  shadowRadius: 8,
-};
+  }
+);
 
-export const shadowXl = Platform.select({
-  ios: {
+export const shadowXl = createShadow(
+  {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
   },
-  android: {
+  {
     elevation: 8,
   },
-  web: {
+  {
     boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.2)',
-  },
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-  },
-}) || {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.2,
-  shadowRadius: 16,
-};
+  }
+);
 
 // Card styles for consistency
 export const cardStyles = {
