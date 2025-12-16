@@ -4,6 +4,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,23 +15,45 @@ import { useLocationStore } from '../store/locationStore';
 import CustomMapView from '../components/MapView';
 import PlacePreviewBottomSheet from '../components/PlacePreviewBottomSheet';
 import LoadingIndicator from '../components/LoadingIndicator';
-import { Place } from '../types';
+import { Place, Category } from '../types';
 import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 export default function MapScreen() {
   const navigation = useNavigation<any>();
   const { currentLocation, fetchLocation } = useLocationStore();
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [mapRegion, setMapRegion] = useState<any>(null);
+  const [bottomSheetIndex, setBottomSheetIndex] = useState<number>(1); // 0=collapsed, 1=mid, 2=expanded
   const mapRef = useRef<any>(null);
 
   // Default location (Istanbul) for fallback
   const defaultLocation = { latitude: 41.0082, longitude: 28.9784 };
   const mapCenter = currentLocation || defaultLocation;
 
+  // Fetch categories
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => apiService.getCategories(),
+  });
+
+  // Flatten categories for display
+  const flattenCategories = (categories: Category[]): Category[] => {
+    const result: Category[] = [];
+    categories?.forEach((category) => {
+      result.push(category);
+      if (category.children && category.children.length > 0) {
+        result.push(...flattenCategories(category.children));
+      }
+    });
+    return result;
+  };
+
+  const displayCategories = categories ? flattenCategories(categories) : [];
+
   // Try map markers endpoint first, fallback to search
   const { data: mapMarkersResponse, isLoading: markersLoading } = useQuery({
-    queryKey: ['mapMarkers', mapCenter.latitude, mapCenter.longitude, mapRegion],
+    queryKey: ['mapMarkers', mapCenter.latitude, mapCenter.longitude, mapRegion, selectedCategory],
     queryFn: async () => {
       try {
         // Calculate bounds from region or use default
@@ -40,7 +63,7 @@ export default function MapScreen() {
           east: mapCenter.longitude + 0.05,
           west: mapCenter.longitude - 0.05,
         };
-        return await apiService.getMapMarkers(bounds);
+        return await apiService.getMapMarkers(bounds, undefined, selectedCategory || undefined);
       } catch (error) {
         // Fallback to regular search
         return null;
@@ -51,18 +74,19 @@ export default function MapScreen() {
 
   // Fallback: Regular search
   const { data: placesResponse, isLoading: placesLoading } = useQuery({
-    queryKey: ['places', 'map', mapCenter.latitude, mapCenter.longitude],
+    queryKey: ['places', 'map', mapCenter.latitude, mapCenter.longitude, selectedCategory],
     queryFn: async () => {
       return apiService.searchPlaces({
         latitude: mapCenter.latitude,
         longitude: mapCenter.longitude,
+        categoryId: selectedCategory || undefined,
         maxDistanceKm: 50, // Wider radius for map
         page: 0,
         size: 100, // More places for map
         sort: 'distance',
       });
     },
-    enabled: !mapMarkersResponse || (mapMarkersResponse?.markers?.length || 0) === 0,
+    enabled: (!mapMarkersResponse || (mapMarkersResponse?.markers?.length || 0) === 0),
   });
 
   // Fallback: Trending places if no nearby data
@@ -104,11 +128,22 @@ export default function MapScreen() {
   }));
 
   // Priority: map markers > search places > trending places
-  const places = placesFromMarkers.length > 0
+  const allPlaces = placesFromMarkers.length > 0
     ? placesFromMarkers
     : searchPlaces.length > 0
     ? searchPlaces
     : trendingPlaces;
+
+  // Filter places by selected category
+  const filteredPlaces = selectedCategory
+    ? allPlaces.filter((place: Place) => {
+        // Check if place category matches selected category
+        if (place.category && typeof place.category === 'object' && place.category.id) {
+          return place.category.id === selectedCategory;
+        }
+        return false;
+      })
+    : allPlaces;
 
   const isLoading = markersLoading || placesLoading;
 
@@ -119,7 +154,19 @@ export default function MapScreen() {
   }, []);
 
   const handleMarkerPress = (place: Place) => {
+    // Center map on marker
+    if (mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: place.latitude,
+        longitude: place.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 500);
+    }
+
+    // Set selected place and open bottom sheet to mid position
     setSelectedPlace(place);
+    setBottomSheetIndex(1); // Mid position
   };
 
   const handleViewDetails = () => {
@@ -129,6 +176,7 @@ export default function MapScreen() {
         params: { placeId: selectedPlace.id },
       });
       setSelectedPlace(null);
+      setBottomSheetIndex(1);
     }
   };
 
@@ -145,6 +193,13 @@ export default function MapScreen() {
     navigation.getParent()?.navigate('Explore', {
       screen: 'NearbyPlaces',
     });
+  };
+
+  const handleCategorySelect = (categoryId: number | null) => {
+    setSelectedCategory(categoryId);
+    // Close bottom sheet when changing category
+    setSelectedPlace(null);
+    setBottomSheetIndex(1);
   };
 
   if (isLoading && !currentLocation) {
@@ -184,7 +239,7 @@ export default function MapScreen() {
   }
 
   // Never show empty map - always show something
-  const displayPlaces = places.length > 0 ? places : [];
+  const displayPlaces = filteredPlaces.length > 0 ? filteredPlaces : [];
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
@@ -196,14 +251,49 @@ export default function MapScreen() {
           onRegionChange={handleMapRegionChange}
           mapRef={mapRef}
         />
+
+        {/* Category Filter Chips */}
+        <View style={styles.categoryFilterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryScrollContent}
+          >
+            <TouchableOpacity
+              style={[styles.categoryChip, !selectedCategory && styles.categoryChipSelected]}
+              onPress={() => handleCategorySelect(null)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextSelected]}>
+                All
+              </Text>
+            </TouchableOpacity>
+            {displayCategories.slice(0, 10).map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                style={[styles.categoryChip, selectedCategory === category.id && styles.categoryChipSelected]}
+                onPress={() => handleCategorySelect(category.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.categoryChipText, selectedCategory === category.id && styles.categoryChipTextSelected]}>
+                  {category.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       </View>
 
       {/* Place Preview Bottom Sheet */}
       <PlacePreviewBottomSheet
         place={selectedPlace}
         visible={!!selectedPlace}
-        onClose={() => setSelectedPlace(null)}
+        onClose={() => {
+          setSelectedPlace(null);
+          setBottomSheetIndex(1);
+        }}
         onViewDetails={handleViewDetails}
+        snapToIndex={bottomSheetIndex}
       />
 
       {/* Floating Action Button */}
@@ -227,6 +317,45 @@ const styles = StyleSheet.create({
   mapContainer: {
     flex: 1,
     width: '100%',
+  },
+  categoryFilterContainer: {
+    position: 'absolute',
+    top: spacing.md,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.md,
+    zIndex: 100,
+  },
+  categoryScrollContent: {
+    paddingRight: spacing.md,
+    gap: spacing.sm,
+  },
+  categoryChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginRight: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  categoryChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryChipText: {
+    ...typography.buttonSmall,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  categoryChipTextSelected: {
+    color: colors.background,
+    fontWeight: '700',
   },
   errorContainer: {
     flex: 1,
@@ -288,68 +417,6 @@ const styles = StyleSheet.create({
     ...typography.buttonSmall,
     color: colors.primary,
     fontWeight: '600',
-  },
-  emptyOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.lg,
-  },
-  emptyContent: {
-    alignItems: 'center',
-  },
-  emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: `${colors.primary}15`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  emptyTitle: {
-    ...typography.h3,
-    color: colors.text,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-    fontWeight: '700',
-  },
-  emptySubtext: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    lineHeight: 22,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  emptyButtonText: {
-    ...typography.button,
-    color: colors.background,
-    fontWeight: '700',
   },
   floatingButton: {
     position: 'absolute',

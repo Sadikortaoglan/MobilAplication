@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,80 +20,111 @@ interface PlacePreviewBottomSheetProps {
   onClose: () => void;
   onViewDetails: () => void;
   visible: boolean;
+  snapToIndex?: number; // 0 = collapsed (25%), 1 = mid (60%), 2 = expanded (90%)
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.4; // 40% of screen
-const MIN_SHEET_HEIGHT = 120; // Minimum height when collapsed
+const SNAP_POINTS = [
+  SCREEN_HEIGHT * 0.75, // 25% visible (collapsed)
+  SCREEN_HEIGHT * 0.4,  // 60% visible (mid)
+  0,                    // 90% visible (expanded)
+];
 
 export default function PlacePreviewBottomSheet({
   place,
   onClose,
   onViewDetails,
   visible,
+  snapToIndex = 1, // Default to mid position
 }: PlacePreviewBottomSheetProps) {
-  const translateY = React.useRef(new Animated.Value(SHEET_HEIGHT)).current;
-  const [isExpanded, setIsExpanded] = React.useState(false);
+  const translateY = useRef(new Animated.Value(SNAP_POINTS[0])).current;
+  const currentSnapIndex = useRef(snapToIndex);
 
-  const panResponder = React.useRef(
+  const animateToSnapPoint = (index: number) => {
+    const targetY = SNAP_POINTS[index];
+    Animated.spring(translateY, {
+      toValue: targetY,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 7,
+    }).start();
+    currentSnapIndex.current = index;
+  };
+
+  // Update snap index when prop changes
+  useEffect(() => {
+    if (snapToIndex !== undefined && snapToIndex !== currentSnapIndex.current) {
+      currentSnapIndex.current = snapToIndex;
+      animateToSnapPoint(snapToIndex);
+    }
+  }, [snapToIndex]);
+
+  const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to vertical gestures
+        return Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+      },
+      onPanResponderGrant: () => {
+        translateY.setOffset(translateY._value);
+        translateY.setValue(0);
+      },
       onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          translateY.setValue(gestureState.dy);
-        }
+        const currentY = translateY._offset + gestureState.dy;
+        // Clamp between min (expanded) and max (collapsed)
+        const clampedY = Math.max(SNAP_POINTS[2], Math.min(SNAP_POINTS[0], currentY));
+        translateY.setValue(clampedY - translateY._offset);
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 50) {
-          // Dragged down - close
-          Animated.spring(translateY, {
-            toValue: SHEET_HEIGHT,
-            useNativeDriver: true,
-            tension: 50,
-            friction: 7,
-          }).start(() => {
-            onClose();
-            setIsExpanded(false);
-          });
-        } else if (gestureState.dy < -50) {
-          // Dragged up - expand
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            tension: 50,
-            friction: 7,
-          }).start(() => setIsExpanded(true));
+        translateY.flattenOffset();
+        const currentY = translateY._value;
+        const velocity = gestureState.vy;
+
+        // Determine target snap point based on position and velocity
+        let targetIndex = currentSnapIndex.current;
+
+        if (Math.abs(velocity) > 0.5) {
+          // Fast swipe - go to next/previous snap point
+          if (velocity < 0) {
+            // Swiping up
+            targetIndex = Math.min(2, currentSnapIndex.current + 1);
+          } else {
+            // Swiping down
+            targetIndex = Math.max(0, currentSnapIndex.current - 1);
+          }
         } else {
-          // Snap back
-          Animated.spring(translateY, {
-            toValue: isExpanded ? 0 : SHEET_HEIGHT - MIN_SHEET_HEIGHT,
-            useNativeDriver: true,
-            tension: 50,
-            friction: 7,
-          }).start();
+          // Slow drag - snap to nearest point
+          const distances = SNAP_POINTS.map((point) => Math.abs(currentY - point));
+          targetIndex = distances.indexOf(Math.min(...distances));
         }
+
+        // If dragged to bottom, close
+        if (currentY > SNAP_POINTS[0] - 50) {
+          onClose();
+          return;
+        }
+
+        animateToSnapPoint(targetIndex);
       },
     })
   ).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (visible && place) {
-      Animated.spring(translateY, {
-        toValue: SHEET_HEIGHT - MIN_SHEET_HEIGHT,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
+      // Open to specified snap position when marker is tapped
+      animateToSnapPoint(snapToIndex);
     } else {
+      // Close completely
       Animated.spring(translateY, {
-        toValue: SHEET_HEIGHT,
+        toValue: SNAP_POINTS[0],
         useNativeDriver: true,
         tension: 50,
         friction: 7,
       }).start();
+      currentSnapIndex.current = 0;
     }
-  }, [visible, place]);
+  }, [visible, place, snapToIndex]);
 
   if (!place || !visible) return null;
 
@@ -110,11 +141,14 @@ export default function PlacePreviewBottomSheet({
       ]}
       {...panResponder.panHandlers}
     >
-      <View style={styles.handle} />
+      <View style={styles.handleContainer}>
+        <View style={styles.handle} />
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        bounces={false}
       >
         {/* Header with image */}
         <View style={styles.header}>
@@ -188,25 +222,27 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: SHEET_HEIGHT,
+    height: SCREEN_HEIGHT,
     backgroundColor: colors.background,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
     zIndex: 1000,
+  },
+  handleContainer: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    alignItems: 'center',
   },
   handle: {
     width: 40,
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.border,
-    alignSelf: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
   },
   scrollView: {
     flex: 1,
@@ -215,7 +251,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   header: {
-    height: 150,
+    height: 200,
     position: 'relative',
     marginBottom: spacing.md,
   },
@@ -323,4 +359,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
