@@ -43,10 +43,12 @@ export default function PlacePreviewBottomSheet({
 
   // Open/close sheet based on visibility
   useEffect(() => {
-    if (visible && place && bottomSheetRef.current) {
+    if (!bottomSheetRef.current) return;
+
+    if (visible && place) {
       // Open to specified snap point
       bottomSheetRef.current.snapToIndex(snapToIndex);
-    } else if (!visible && bottomSheetRef.current) {
+    } else {
       // Close sheet
       bottomSheetRef.current.close();
     }
