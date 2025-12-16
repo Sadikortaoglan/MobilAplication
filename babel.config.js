@@ -11,7 +11,6 @@ module.exports = function(api) {
       ],
     ],
     plugins: [
-      'react-native-reanimated/plugin',
       [
         'inline-dotenv',
         {
@@ -28,6 +27,7 @@ module.exports = function(api) {
           },
         },
       ],
+      'react-native-reanimated/plugin', // Must be last
     ],
   };
 };
