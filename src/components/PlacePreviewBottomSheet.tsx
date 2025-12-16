@@ -82,8 +82,10 @@ export default function PlacePreviewBottomSheet({
       enablePanDownToClose={true}
       backgroundStyle={styles.bottomSheetBackground}
       handleIndicatorStyle={styles.handleIndicator}
-      animateOnMount={true}
+      animateOnMount={false}
       enableDynamicSizing={false}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
     >
         <BottomSheetScrollView
           style={styles.scrollView}
