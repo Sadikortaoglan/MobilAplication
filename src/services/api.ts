@@ -208,7 +208,7 @@ class ApiService {
     }
 
     try {
-      const response = await this.client.post('/api/user/places', payload);
+      const response = await this.client.post('/api/places/submit', payload); // Backend uses /api/places/submit
       if (__DEV__) {
         console.log('✅ Add Place Response:', response.status, response.data);
       }

@@ -82,7 +82,8 @@ export default function MapScreen() {
   // Extract places from different sources
   const mapMarkers = mapMarkersResponse?.markers || [];
   const searchPlaces = placesResponse?.content || [];
-  const trendingPlaces = trendingResponse?.places || [];
+  // Backend discovery endpoints return arrays directly
+  const trendingPlaces = Array.isArray(trendingResponse) ? trendingResponse : trendingResponse?.places || [];
 
   // Convert map markers to places if needed
   const placesFromMarkers = mapMarkers.map((marker: any) => ({

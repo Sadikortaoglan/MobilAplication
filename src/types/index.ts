@@ -85,6 +85,8 @@ export interface UserStats {
   helpfulReviewsGiven?: number;
 }
 
+// Backend discovery endpoints return arrays directly, not objects
+// So we use Place[] directly, but keep this interface for potential future use
 export interface DiscoveryResponse {
   places: Place[];
   context: 'trending' | 'popular-this-week' | 'hidden-gems';
@@ -99,6 +101,10 @@ export interface DiscoveryResponse {
     };
   };
 }
+
+// Backend actually returns Place[] directly for discovery endpoints
+// Type alias for clarity
+export type DiscoveryPlaces = Place[];
 
 export interface MapMarker {
   id: number;

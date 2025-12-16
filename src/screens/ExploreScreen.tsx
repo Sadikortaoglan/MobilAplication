@@ -119,10 +119,13 @@ export default function ExploreScreen() {
     enabled: true, // Always enabled as ultimate fallback
   });
 
-  const trendingPlaces = trendingResponse?.places || [];
-  const popularPlaces = popularResponse?.places || [];
-  const hiddenGems = hiddenGemsResponse?.places || [];
-  const nearbyActivePlaces = nearbyActiveResponse?.places || nearbyActiveResponse?.content || [];
+  // Backend discovery endpoints return arrays directly (not objects with 'places' property)
+  const trendingPlaces = Array.isArray(trendingResponse) ? trendingResponse : trendingResponse?.places || [];
+  const popularPlaces = Array.isArray(popularResponse) ? popularResponse : popularResponse?.places || [];
+  const hiddenGems = Array.isArray(hiddenGemsResponse) ? hiddenGemsResponse : hiddenGemsResponse?.places || [];
+  const nearbyActivePlaces = Array.isArray(nearbyActiveResponse) 
+    ? nearbyActiveResponse 
+    : nearbyActiveResponse?.places || nearbyActiveResponse?.content || [];
   const fallbackPlaces = fallbackResponse?.content || [];
   const topCategories = categories?.slice(0, 8) || [];
 
