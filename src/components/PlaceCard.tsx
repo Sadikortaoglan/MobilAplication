@@ -9,7 +9,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { Place } from '../types';
 import RatingStars from './RatingStars';
-import { colors, spacing, typography, borderRadius, shadowLg } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 interface PlaceCardProps {
   place: Place;
@@ -84,7 +84,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     marginVertical: spacing.sm,
     marginHorizontal: 0, // Horizontal scroll'da margin ekleniyor
-    ...shadowLg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
     overflow: 'hidden',
     maxWidth: '100%',
     borderWidth: 1,

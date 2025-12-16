@@ -22,14 +22,9 @@ export const shadowSm = {
   elevation: 2,
 };
 
-// Large shadow (kept for backward compatibility)
-export const shadowLg = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.15,
-  shadowRadius: 8,
-  elevation: 5,
-};
+// Large shadow - REMOVED: Use inline shadow properties instead
+// shadowLg export removed to prevent runtime errors
+// Use inline: shadowColor, shadowOffset, shadowOpacity, shadowRadius, elevation
 
 // Extra large shadow (kept for backward compatibility)
 export const shadowXl = {
