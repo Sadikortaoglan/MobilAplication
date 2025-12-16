@@ -82,8 +82,7 @@ const getApiUrl = () => {
 const API_BASE_URL = getApiUrl();
 
 // Debug için (geliştirme sırasında kontrol edebilirsiniz)
-if (__DEV__) {
-  // API Base URL logged only in development
+// API Base URL logged only in development
 if (__DEV__) {
   console.log('🔗 API Base URL:', API_BASE_URL);
 }
