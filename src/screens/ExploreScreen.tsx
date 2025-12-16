@@ -67,27 +67,68 @@ export default function ExploreScreen() {
     retry: 1,
   });
 
-  // Fallback to regular search if discovery endpoints fail
+  // Nearby active places
+  const { data: nearbyActiveResponse, isLoading: nearbyActiveLoading } = useQuery({
+    queryKey: ['discover', 'nearby-active', locationForDiscovery.latitude, locationForDiscovery.longitude],
+    queryFn: () => apiService.getNearbyActive(
+      locationForDiscovery.latitude,
+      locationForDiscovery.longitude,
+      12
+    ),
+    retry: 1,
+  });
+
+  // Aggressive fallback - always show something
   const { data: fallbackResponse, isLoading: fallbackLoading } = useQuery({
     queryKey: ['fallbackPlaces', locationForDiscovery.latitude, locationForDiscovery.longitude],
     queryFn: async () => {
-      return apiService.searchPlaces({
-        latitude: locationForDiscovery.latitude,
-        longitude: locationForDiscovery.longitude,
-        maxDistanceKm: 50,
-        page: 0,
-        size: 12,
-        sort: 'rating',
-      });
+      // Try multiple fallback strategies
+      try {
+        // Strategy 1: Popular places in city
+        const response = await apiService.searchPlaces({
+          latitude: locationForDiscovery.latitude,
+          longitude: locationForDiscovery.longitude,
+          maxDistanceKm: 50,
+          page: 0,
+          size: 20,
+          sort: 'rating',
+        });
+        if (response?.content && response.content.length > 0) {
+          return response;
+        }
+      } catch (error) {
+        // Continue to next strategy
+      }
+
+      // Strategy 2: All places sorted by rating
+      try {
+        const response = await apiService.searchPlaces({
+          latitude: locationForDiscovery.latitude,
+          longitude: locationForDiscovery.longitude,
+          maxDistanceKm: 100,
+          page: 0,
+          size: 20,
+          sort: 'rating',
+        });
+        return response;
+      } catch (error) {
+        // Return empty but valid structure
+        return { content: [] };
+      }
     },
-    enabled: !trendingResponse && !popularResponse && !hiddenGemsResponse,
+    enabled: true, // Always enabled as ultimate fallback
   });
 
   const trendingPlaces = trendingResponse?.places || [];
   const popularPlaces = popularResponse?.places || [];
   const hiddenGems = hiddenGemsResponse?.places || [];
+  const nearbyActivePlaces = nearbyActiveResponse?.places || nearbyActiveResponse?.content || [];
   const fallbackPlaces = fallbackResponse?.content || [];
   const topCategories = categories?.slice(0, 8) || [];
+
+  // Smart section visibility - always show at least 2 sections
+  const hasAnyDiscoveryData = trendingPlaces.length > 0 || popularPlaces.length > 0 || hiddenGems.length > 0 || nearbyActivePlaces.length > 0;
+  const shouldShowFallback = !hasAnyDiscoveryData && fallbackPlaces.length > 0;
 
   useEffect(() => {
     // Soft location request - non-blocking
@@ -194,6 +235,43 @@ export default function ExploreScreen() {
                 />
               ))}
             </ScrollView>
+          </View>
+        )}
+
+        {/* Nearby Active Section - Show first if available */}
+        {(nearbyActivePlaces.length > 0 || nearbyActiveLoading) && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Feather name="activity" size={20} color={colors.success} />
+                <Text style={styles.sectionTitle}>Active nearby</Text>
+              </View>
+              {nearbyActivePlaces.length > 5 && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('NearbyPlaces')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {nearbyActiveLoading ? (
+              <View style={styles.loadingContainer}>
+                <LoadingIndicator message="Finding active places..." />
+              </View>
+            ) : nearbyActivePlaces.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScroll}
+              >
+                {nearbyActivePlaces.slice(0, 8).map((place: Place) => (
+                  <View key={place.id} style={styles.horizontalCard}>
+                    <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
           </View>
         )}
 
@@ -308,8 +386,8 @@ export default function ExploreScreen() {
           </View>
         )}
 
-        {/* Fallback: Popular Places (if discovery endpoints not available) */}
-        {trendingPlaces.length === 0 && popularPlaces.length === 0 && hiddenGems.length === 0 && !trendingLoading && !popularLoading && !hiddenGemsLoading && (
+        {/* Fallback: Popular Places (ALWAYS show if no discovery data) */}
+        {shouldShowFallback && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
@@ -334,14 +412,18 @@ export default function ExploreScreen() {
                 ))}
               </ScrollView>
             ) : (
-              <View style={styles.fallbackContainer}>
-                <Feather name="map" size={48} color={colors.textTertiary} />
-                <Text style={styles.fallbackText}>Discover places on the map</Text>
+              // Ultimate fallback - show categories and map CTA
+              <View style={styles.ultimateFallback}>
+                <Text style={styles.ultimateFallbackText}>
+                  Start exploring by category or use the map
+                </Text>
                 <TouchableOpacity
-                  style={styles.fallbackButton}
+                  style={styles.ultimateFallbackButton}
                   onPress={handleExploreNearby}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.fallbackButtonText}>Explore Map</Text>
+                  <Feather name="map" size={18} color={colors.background} />
+                  <Text style={styles.ultimateFallbackButtonText}>Explore Map</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -562,5 +644,32 @@ const styles = StyleSheet.create({
   fallbackButtonText: {
     ...typography.button,
     color: colors.background,
+  },
+  ultimateFallback: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+  },
+  ultimateFallbackText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 22,
+  },
+  ultimateFallbackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    ...shadowMd,
+  },
+  ultimateFallbackButtonText: {
+    ...typography.button,
+    color: colors.background,
+    fontWeight: '700',
   },
 });

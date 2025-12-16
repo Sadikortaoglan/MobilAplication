@@ -52,6 +52,12 @@ export interface Place {
   photos: Photo[];
   status?: 'PENDING' | 'APPROVED' | 'REJECTED';
   rejectionReason?: string;
+  // Activity signals
+  visitCountLast7Days?: number;
+  isTrending?: boolean;
+  trendingScore?: number;
+  popularityScore?: number;
+  hiddenGemScore?: number;
 }
 
 export interface Review {

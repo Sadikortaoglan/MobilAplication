@@ -329,6 +329,32 @@ class ApiService {
     return response.data;
   }
 
+  // Nearby active places
+  async getNearbyActive(latitude?: number, longitude?: number, limit: number = 20) {
+    const params: any = { limit };
+    if (latitude && longitude) {
+      params.latitude = latitude;
+      params.longitude = longitude;
+    }
+    try {
+      const response = await this.client.get('/api/discover/nearby-active', { params });
+      return response.data;
+    } catch (error) {
+      // Fallback to regular search if endpoint not available
+      if (latitude && longitude) {
+        return this.searchPlaces({
+          latitude,
+          longitude,
+          maxDistanceKm: 10,
+          page: 0,
+          size: limit,
+          sort: 'rating',
+        });
+      }
+      throw error;
+    }
+  }
+
   // Visited timeline
   async getVisitedTimeline(page: number = 0, size: number = 20, sort: 'visitedAt' | 'visitedAtAsc' = 'visitedAt') {
     const response = await this.client.get('/api/users/me/visited-timeline', {

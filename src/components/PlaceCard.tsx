@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Place } from '../types';
 import RatingStars from './RatingStars';
 import { colors, spacing, typography, borderRadius, shadowLg } from '../theme/designSystem';
@@ -17,6 +18,8 @@ interface PlaceCardProps {
 
 export default function PlaceCard({ place, onPress }: PlaceCardProps) {
   const coverPhoto = place.photos?.find((photo) => photo.isCover) || place.photos?.[0];
+  const showTrending = place.isTrending || (place.visitCountLast7Days && place.visitCountLast7Days > 10);
+  const showActivity = place.visitCountLast7Days && place.visitCountLast7Days > 0;
 
   return (
     <TouchableOpacity
@@ -25,11 +28,28 @@ export default function PlaceCard({ place, onPress }: PlaceCardProps) {
       activeOpacity={0.8}
     >
       {coverPhoto && (
-        <Image
-          source={{ uri: coverPhoto.url }}
-          style={styles.image}
-          resizeMode="cover"
-        />
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: coverPhoto.url }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          {/* Activity Badges Overlay */}
+          {showTrending && (
+            <View style={styles.trendingBadge}>
+              <Feather name="trending-up" size={12} color={colors.background} />
+              <Text style={styles.trendingText}>Trending</Text>
+            </View>
+          )}
+          {showActivity && !showTrending && (
+            <View style={styles.activityBadge}>
+              <Feather name="users" size={12} color={colors.background} />
+              <Text style={styles.activityText}>
+                {place.visitCountLast7Days} {place.visitCountLast7Days === 1 ? 'visit' : 'visits'} this week
+              </Text>
+            </View>
+          )}
+        </View>
       )}
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={2}>
@@ -70,10 +90,51 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+  },
   image: {
     width: '100%',
     height: 200,
     backgroundColor: colors.backgroundSecondary,
+  },
+  trendingBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.xl,
+  },
+  trendingText: {
+    ...typography.caption,
+    color: colors.background,
+    fontWeight: '700',
+    fontSize: 11,
+  },
+  activityBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.xl,
+  },
+  activityText: {
+    ...typography.caption,
+    color: colors.background,
+    fontWeight: '600',
+    fontSize: 11,
   },
   content: {
     padding: spacing.lg,
