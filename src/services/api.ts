@@ -86,7 +86,6 @@ const API_BASE_URL = getApiUrl();
 if (__DEV__) {
   console.log('🔗 API Base URL:', API_BASE_URL);
 }
-}
 
 class ApiService {
   private client: AxiosInstance;
