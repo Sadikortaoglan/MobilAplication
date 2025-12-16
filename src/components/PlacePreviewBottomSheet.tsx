@@ -32,6 +32,13 @@ export default function PlacePreviewBottomSheet({
   // Snap points: 15% (collapsed/peek), 55% (mid/preview), 95% (full/details)
   const snapPoints = useMemo(() => ['15%', '55%', '95%'], []);
 
+  // Validate and clamp snapToIndex to valid range [0, 2]
+  const validSnapToIndex = useMemo(() => {
+    if (snapToIndex === undefined || snapToIndex === null) return 1; // Default to mid
+    const clamped = Math.max(0, Math.min(2, Math.floor(snapToIndex)));
+    return clamped;
+  }, [snapToIndex]);
+
   // Handle sheet changes
   const handleSheetChanges = useCallback((index: number) => {
     // Close sheet if dragged to bottom (index -1 means closed)
@@ -49,9 +56,9 @@ export default function PlacePreviewBottomSheet({
       if (!bottomSheetRef.current) return;
 
       if (visible && place) {
-        // Open to specified snap point
+        // Open to specified snap point - use validated index
         try {
-          bottomSheetRef.current.snapToIndex(snapToIndex);
+          bottomSheetRef.current.snapToIndex(validSnapToIndex);
         } catch (error) {
           console.warn('BottomSheet snapToIndex error:', error);
         }
@@ -66,7 +73,7 @@ export default function PlacePreviewBottomSheet({
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [visible, place, snapToIndex]);
+  }, [visible, place, validSnapToIndex]);
 
   if (!place) return null;
 
@@ -76,7 +83,7 @@ export default function PlacePreviewBottomSheet({
   return (
     <BottomSheet
       ref={bottomSheetRef}
-      index={visible ? snapToIndex : -1}
+      index={visible ? validSnapToIndex : -1}
       snapPoints={snapPoints}
       onChange={handleSheetChanges}
       enablePanDownToClose={true}

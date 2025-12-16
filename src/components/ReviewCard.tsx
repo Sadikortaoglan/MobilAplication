@@ -6,7 +6,7 @@ import { Review } from '../types';
 import RatingStars from './RatingStars';
 import { apiService } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import { colors, spacing, typography, borderRadius, shadowSm } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 interface ReviewCardProps {
   review: Review;

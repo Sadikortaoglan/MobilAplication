@@ -24,7 +24,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import ImageCarousel from '../components/ImageCarousel';
 import MiniMapPreview from '../components/MiniMapPreview';
 import { Review, Photo } from '../types';
-import { colors, spacing, typography, borderRadius, shadowSm } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 import { sanitizeErrorMessage } from '../utils/errorHandler';
 
 export default function PlaceDetailScreen() {
@@ -756,7 +756,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadowSm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   heroRatingBadge: {
     position: 'absolute',
@@ -769,7 +773,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.xl,
     backgroundColor: 'rgba(255,255,255,0.95)',
-    ...shadowSm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   heroRatingText: {
     ...typography.bodySmall,
@@ -963,7 +971,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    ...shadowSm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   userReviewHeader: {
     flexDirection: 'row',

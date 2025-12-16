@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
-import { colors, spacing, typography, borderRadius, shadowSm } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();

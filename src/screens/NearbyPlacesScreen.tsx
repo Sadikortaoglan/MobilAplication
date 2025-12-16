@@ -17,7 +17,7 @@ import PlaceCard from '../components/PlaceCard';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { Place } from '../types';
 import { ExploreStackParamList } from '../navigation/types';
-import { colors, spacing, typography, borderRadius, shadowSm } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 type NearbyPlacesRouteProp = RouteProp<ExploreStackParamList, 'NearbyPlaces'>;
 
