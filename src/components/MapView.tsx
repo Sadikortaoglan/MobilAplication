@@ -72,20 +72,32 @@ export default function CustomMapView({
           />
         )}
         
-        {/* Place markers */}
-        {places.map((place) => (
-          <Marker
-            key={place.id}
-            coordinate={{
-              latitude: place.latitude,
-              longitude: place.longitude,
-            }}
-            title={place.name}
-            description={place.address}
-            onPress={() => onMarkerPress(place)}
-            pinColor="#FF3B30"
-          />
-        ))}
+        {/* Place markers with activity-based colors */}
+        {places.map((place) => {
+          // Determine marker color based on activity
+          let pinColor = '#FF3B30'; // Default red
+          if (place.averageRating && place.averageRating >= 4.5) {
+            pinColor = '#34C759'; // Green for highly rated
+          } else if (place.reviewCount && place.reviewCount > 10) {
+            pinColor = '#FF9500'; // Orange for popular
+          } else if (place.averageRating && place.averageRating >= 4.0) {
+            pinColor = '#007AFF'; // Blue for good
+          }
+
+          return (
+            <Marker
+              key={place.id}
+              coordinate={{
+                latitude: place.latitude,
+                longitude: place.longitude,
+              }}
+              title={place.name}
+              description={place.address}
+              onPress={() => onMarkerPress(place)}
+              pinColor={pinColor}
+            />
+          );
+        })}
       </MapView>
     </View>
   );

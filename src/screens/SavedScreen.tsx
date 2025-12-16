@@ -8,18 +8,19 @@ import {
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { apiService } from '../services/api';
 import PlaceCard from '../components/PlaceCard';
 import LoadingIndicator from '../components/LoadingIndicator';
-import { Place } from '../types';
+import { Place, VisitedTimelineItem, UserStats } from '../types';
 import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
 
 export default function SavedScreen() {
   const { isAuthenticated, showAuthModal } = useAuthStore();
+  const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
 
   // Fetch favorites
@@ -46,14 +47,38 @@ export default function SavedScreen() {
     retry: 1,
   });
 
+  // Fetch visited timeline
+  const {
+    data: visitedTimelineResponse,
+    isLoading: timelineLoading,
+    refetch: refetchTimeline,
+  } = useQuery({
+    queryKey: ['visitedTimeline'],
+    queryFn: () => apiService.getVisitedTimeline(0, 20, 'visitedAt'),
+    enabled: isAuthenticated,
+    retry: 1,
+  });
+
+  // Fetch user stats
+  const {
+    data: userStats,
+    isLoading: statsLoading,
+  } = useQuery({
+    queryKey: ['userStats'],
+    queryFn: () => apiService.getUserStats(),
+    enabled: isAuthenticated,
+    retry: 1,
+  });
+
   // Refresh data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       if (isAuthenticated) {
         refetchFavorites();
         refetchVisited();
+        refetchTimeline();
       }
-    }, [isAuthenticated, refetchFavorites, refetchVisited])
+    }, [isAuthenticated, refetchFavorites, refetchVisited, refetchTimeline])
   );
 
   // Handle both array and paginated response formats
@@ -63,15 +88,34 @@ export default function SavedScreen() {
   const visited = Array.isArray(visitedResponse)
     ? visitedResponse
     : visitedResponse?.content || [];
+  const visitedTimeline = visitedTimelineResponse?.content || [];
+  
+  // Group timeline by month
+  const timelineByMonth = React.useMemo(() => {
+    const grouped: { [key: string]: VisitedTimelineItem[] } = {};
+    visitedTimeline.forEach((item: VisitedTimelineItem) => {
+      const date = new Date(item.visitedAt);
+      const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = [];
+      }
+      grouped[monthKey].push(item);
+    });
+    return grouped;
+  }, [visitedTimeline]);
 
   const handlePlacePress = (place: Place) => {
-    // Navigate to Explore stack for PlaceDetail
-    if ((global as any).navigationRef?.current) {
-      (global as any).navigationRef.current.navigate('Explore', {
-        screen: 'PlaceDetail',
-        params: { placeId: place.id },
-      });
-    }
+    navigation.getParent()?.navigate('Explore', {
+      screen: 'PlaceDetail',
+      params: { placeId: place.id },
+    });
+  };
+
+  const handleTimelineItemPress = (item: VisitedTimelineItem) => {
+    navigation.getParent()?.navigate('Explore', {
+      screen: 'PlaceDetail',
+      params: { placeId: item.placeId },
+    });
   };
 
   if (!isAuthenticated) {
@@ -100,7 +144,7 @@ export default function SavedScreen() {
     );
   }
 
-  if (favoritesLoading || visitedLoading) {
+  if (favoritesLoading || visitedLoading || timelineLoading || statsLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <LoadingIndicator message="Loading saved places..." />
@@ -153,11 +197,50 @@ export default function SavedScreen() {
           )}
         </View>
 
-        {/* Visited Section */}
+        {/* Visited Timeline Section */}
+        {visitedTimeline.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Feather name="clock" size={20} color={colors.visited} />
+              <Text style={styles.sectionTitle}>Places you've been</Text>
+            </View>
+            {Object.entries(timelineByMonth).map(([month, items]) => (
+              <View key={month} style={styles.monthGroup}>
+                <Text style={styles.monthTitle}>{month}</Text>
+                <Text style={styles.monthSummary}>
+                  You discovered {items.length} {items.length === 1 ? 'place' : 'places'}
+                </Text>
+                {items.map((item: VisitedTimelineItem) => (
+                  <TouchableOpacity
+                    key={item.placeId}
+                    style={styles.timelineItem}
+                    onPress={() => handleTimelineItemPress(item)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.timelineItemContent}>
+                      <View style={styles.timelineItemLeft}>
+                        <Text style={styles.timelineItemName}>{item.placeName}</Text>
+                        <Text style={styles.timelineItemCategory}>{item.category.name}</Text>
+                      </View>
+                      <Text style={styles.timelineItemDate}>
+                        {new Date(item.visitedAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Visited Section (Legacy - keep for backward compatibility) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Feather name="check-circle" size={20} color={colors.visited} />
-            <Text style={styles.sectionTitle}>Visited</Text>
+            <Text style={styles.sectionTitle}>All visited</Text>
             {visited.length > 0 && (
               <Text style={styles.count}>({visited.length})</Text>
             )}
@@ -182,7 +265,7 @@ export default function SavedScreen() {
               </View>
               <Text style={styles.emptyStateText}>No visited places yet</Text>
               <Text style={styles.emptyStateSubtext}>
-                Mark places you've been to
+                Mark places you've been to and they'll appear here
               </Text>
             </View>
           )}
@@ -211,6 +294,11 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h1,
     color: colors.text,
+  },
+  subtitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   section: {
     marginTop: spacing.lg,
@@ -299,5 +387,49 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.background,
     fontWeight: '700',
+  },
+  monthGroup: {
+    marginBottom: spacing.lg,
+  },
+  monthTitle: {
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.xs,
+    fontWeight: '700',
+  },
+  monthSummary: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  timelineItem: {
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  timelineItemContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timelineItemLeft: {
+    flex: 1,
+  },
+  timelineItemName: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  timelineItemCategory: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  timelineItemDate: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
 });

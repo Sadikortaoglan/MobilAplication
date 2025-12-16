@@ -75,14 +75,58 @@ export default function MapScreen() {
     return (
       <SafeAreaView style={styles.container} edges={[]}>
         <View style={styles.errorContainer}>
-          <Feather name="map-pin" size={64} color={colors.textTertiary} />
+          <View style={styles.errorIconContainer}>
+            <Feather name="map-pin" size={72} color={colors.primary} />
+          </View>
           <Text style={styles.errorTitle}>Location permission required</Text>
           <Text style={styles.errorSubtext}>
-            We need your location to show places on the map
+            We need your location to show places on the map.{'\n'}
+            Your location is only used to find nearby places.
           </Text>
-          <TouchableOpacity style={styles.button} onPress={fetchLocation}>
+          <TouchableOpacity style={styles.button} onPress={fetchLocation} activeOpacity={0.8}>
+            <Feather name="map-pin" size={18} color={colors.background} />
             <Text style={styles.buttonText}>Enable Location</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => navigation.getParent()?.navigate('Explore')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.secondaryButtonText}>Browse without location</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (places.length === 0 && !isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={[]}>
+        <View style={styles.mapContainer}>
+          <CustomMapView
+            places={[]}
+            currentLocation={currentLocation}
+            onMarkerPress={() => {}}
+          />
+        </View>
+        <View style={styles.emptyOverlay}>
+          <View style={styles.emptyContent}>
+            <View style={styles.emptyIconContainer}>
+              <Feather name="map" size={64} color={colors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>No places found nearby</Text>
+            <Text style={styles.emptySubtext}>
+              Try expanding your search or browse popular places
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => navigation.getParent()?.navigate('Explore')}
+              activeOpacity={0.8}
+            >
+              <Feather name="compass" size={18} color={colors.background} />
+              <Text style={styles.emptyButtonText}>Browse All Places</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -126,12 +170,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
   },
+  errorIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: `${colors.primary}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
   errorTitle: {
-    ...typography.h3,
+    ...typography.h2,
     color: colors.text,
     marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
     textAlign: 'center',
+    fontWeight: '700',
   },
   errorSubtext: {
     ...typography.body,
@@ -139,16 +193,87 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.xl,
     lineHeight: 24,
+    paddingHorizontal: spacing.lg,
   },
   button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
+    ...shadowMd,
+    minWidth: 200,
   },
   buttonText: {
     ...typography.button,
     color: colors.background,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  secondaryButtonText: {
+    ...typography.buttonSmall,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  emptyOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    ...shadowLg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyContent: {
+    alignItems: 'center',
+  },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: `${colors.primary}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  emptySubtext: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 22,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    ...shadowMd,
+  },
+  emptyButtonText: {
+    ...typography.button,
+    color: colors.background,
+    fontWeight: '700',
   },
   floatingButton: {
     position: 'absolute',

@@ -634,7 +634,15 @@ export default function PlaceDetailScreen() {
             <FlatList
               data={otherReviews}
               keyExtractor={(item: Review) => item.id.toString()}
-              renderItem={({ item }) => <ReviewCard review={item} />}
+              renderItem={({ item }) => (
+                <ReviewCard
+                  review={item}
+                  placeId={Number(placeId)}
+                  onHelpfulPress={() => {
+                    queryClient.invalidateQueries({ queryKey: ['reviews', placeId] });
+                  }}
+                />
+              )}
               scrollEnabled={false}
             />
           ) : !hasUserReviewed ? (

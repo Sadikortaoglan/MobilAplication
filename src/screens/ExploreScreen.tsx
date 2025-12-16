@@ -31,43 +31,62 @@ export default function ExploreScreen() {
     queryFn: () => apiService.getCategories(),
   });
 
-  // Fetch popular places (no location required) - always show something
-  const { data: popularPlacesResponse, isLoading: placesLoading } = useQuery({
-    queryKey: ['popularPlaces'],
+  // Discovery endpoints - always show something
+  const locationForDiscovery = currentLocation || { latitude: 41.0082, longitude: 28.9784 }; // Istanbul fallback
+
+  // Trending near you
+  const { data: trendingResponse, isLoading: trendingLoading } = useQuery({
+    queryKey: ['discover', 'trending', locationForDiscovery.latitude, locationForDiscovery.longitude],
+    queryFn: () => apiService.getTrendingPlaces(
+      locationForDiscovery.latitude,
+      locationForDiscovery.longitude,
+      12
+    ),
+    retry: 1,
+  });
+
+  // Popular this week
+  const { data: popularResponse, isLoading: popularLoading } = useQuery({
+    queryKey: ['discover', 'popular', locationForDiscovery.latitude, locationForDiscovery.longitude],
+    queryFn: () => apiService.getPopularThisWeek(
+      locationForDiscovery.latitude,
+      locationForDiscovery.longitude,
+      12
+    ),
+    retry: 1,
+  });
+
+  // Hidden gems
+  const { data: hiddenGemsResponse, isLoading: hiddenGemsLoading } = useQuery({
+    queryKey: ['discover', 'hidden-gems', locationForDiscovery.latitude, locationForDiscovery.longitude],
+    queryFn: () => apiService.getHiddenGems(
+      locationForDiscovery.latitude,
+      locationForDiscovery.longitude,
+      12
+    ),
+    retry: 1,
+  });
+
+  // Fallback to regular search if discovery endpoints fail
+  const { data: fallbackResponse, isLoading: fallbackLoading } = useQuery({
+    queryKey: ['fallbackPlaces', locationForDiscovery.latitude, locationForDiscovery.longitude],
     queryFn: async () => {
-      // Use Istanbul as default location for curated content
-      const defaultLat = 41.0082;
-      const defaultLng = 28.9784;
       return apiService.searchPlaces({
-        latitude: defaultLat,
-        longitude: defaultLng,
+        latitude: locationForDiscovery.latitude,
+        longitude: locationForDiscovery.longitude,
         maxDistanceKm: 50,
         page: 0,
         size: 12,
         sort: 'rating',
       });
     },
+    enabled: !trendingResponse && !popularResponse && !hiddenGemsResponse,
   });
 
-  // Fetch nearby places if location available
-  const { data: nearbyPlacesResponse, isLoading: nearbyLoading } = useQuery({
-    queryKey: ['nearbyPlaces', currentLocation?.latitude, currentLocation?.longitude],
-    queryFn: async () => {
-      if (!currentLocation) return null;
-      return apiService.searchPlaces({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        maxDistanceKm: 10,
-        page: 0,
-        size: 10,
-        sort: 'distance',
-      });
-    },
-    enabled: !!currentLocation,
-  });
-
-  const popularPlaces = popularPlacesResponse?.content || [];
-  const nearbyPlaces = nearbyPlacesResponse?.content || [];
+  const trendingPlaces = trendingResponse?.places || [];
+  const popularPlaces = popularResponse?.places || [];
+  const hiddenGems = hiddenGemsResponse?.places || [];
+  const fallbackPlaces = fallbackResponse?.content || [];
   const topCategories = categories?.slice(0, 8) || [];
 
   useEffect(() => {
@@ -178,80 +197,156 @@ export default function ExploreScreen() {
           </View>
         )}
 
-        {/* Nearby Places Section - Horizontal Slider */}
-        {currentLocation && nearbyPlaces.length > 0 && (
+        {/* Trending Near You Section */}
+        {(trendingPlaces.length > 0 || trendingLoading) && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <Feather name="map-pin" size={20} color={colors.primary} />
-                <Text style={styles.sectionTitle}>Near you</Text>
+                <Feather name="trending-up" size={20} color={colors.primary} />
+                <Text style={styles.sectionTitle}>Trending near you</Text>
               </View>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('NearbyPlaces')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.seeAllText}>See all</Text>
-              </TouchableOpacity>
+              {trendingPlaces.length > 5 && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('NearbyPlaces')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalScroll}
-            >
-              {nearbyPlaces.slice(0, 8).map((place: Place) => (
-                <View key={place.id} style={styles.horizontalCard}>
-                  <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
-                </View>
-              ))}
-            </ScrollView>
+            {trendingLoading ? (
+              <View style={styles.loadingContainer}>
+                <LoadingIndicator message="Loading trending places..." />
+              </View>
+            ) : trendingPlaces.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScroll}
+              >
+                {trendingPlaces.slice(0, 8).map((place: Place) => (
+                  <View key={place.id} style={styles.horizontalCard}>
+                    <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
           </View>
         )}
 
-        {/* Popular Places Section - Horizontal Slider */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Feather name="star" size={20} color={colors.warning} />
-              <Text style={styles.sectionTitle}>Popular places</Text>
+        {/* Popular This Week Section */}
+        {(popularPlaces.length > 0 || popularLoading) && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Feather name="star" size={20} color={colors.warning} />
+                <Text style={styles.sectionTitle}>Popular this week</Text>
+              </View>
+              {popularPlaces.length > 5 && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('NearbyPlaces')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            {popularPlaces.length > 5 && (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('NearbyPlaces')}
-                activeOpacity={0.7}
+            {popularLoading ? (
+              <View style={styles.loadingContainer}>
+                <LoadingIndicator message="Loading popular places..." />
+              </View>
+            ) : popularPlaces.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScroll}
               >
-                <Text style={styles.seeAllText}>See all</Text>
-              </TouchableOpacity>
+                {popularPlaces.slice(0, 8).map((place: Place) => (
+                  <View key={place.id} style={styles.horizontalCard}>
+                    <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+          </View>
+        )}
+
+        {/* Hidden Gems Section */}
+        {(hiddenGems.length > 0 || hiddenGemsLoading) && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Feather name="gem" size={20} color={colors.success} />
+                <Text style={styles.sectionTitle}>Hidden gems</Text>
+              </View>
+              {hiddenGems.length > 5 && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('NearbyPlaces')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {hiddenGemsLoading ? (
+              <View style={styles.loadingContainer}>
+                <LoadingIndicator message="Discovering hidden gems..." />
+              </View>
+            ) : hiddenGems.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScroll}
+              >
+                {hiddenGems.slice(0, 8).map((place: Place) => (
+                  <View key={place.id} style={styles.horizontalCard}>
+                    <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+          </View>
+        )}
+
+        {/* Fallback: Popular Places (if discovery endpoints not available) */}
+        {trendingPlaces.length === 0 && popularPlaces.length === 0 && hiddenGems.length === 0 && !trendingLoading && !popularLoading && !hiddenGemsLoading && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Feather name="star" size={20} color={colors.warning} />
+                <Text style={styles.sectionTitle}>Popular places</Text>
+              </View>
+            </View>
+            {fallbackLoading ? (
+              <View style={styles.loadingContainer}>
+                <LoadingIndicator message="Loading places..." />
+              </View>
+            ) : fallbackPlaces.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScroll}
+              >
+                {fallbackPlaces.slice(0, 8).map((place: Place) => (
+                  <View key={place.id} style={styles.horizontalCard}>
+                    <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.fallbackContainer}>
+                <Feather name="map" size={48} color={colors.textTertiary} />
+                <Text style={styles.fallbackText}>Discover places on the map</Text>
+                <TouchableOpacity
+                  style={styles.fallbackButton}
+                  onPress={handleExploreNearby}
+                >
+                  <Text style={styles.fallbackButtonText}>Explore Map</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
-          {placesLoading ? (
-            <View style={styles.loadingContainer}>
-              <LoadingIndicator message="Loading popular places..." />
-            </View>
-          ) : popularPlaces.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalScroll}
-            >
-              {popularPlaces.slice(0, 8).map((place: Place) => (
-                <View key={place.id} style={styles.horizontalCard}>
-                  <PlaceCard place={place} onPress={() => handlePlacePress(place)} />
-                </View>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.fallbackContainer}>
-              <Feather name="map" size={48} color={colors.textTertiary} />
-              <Text style={styles.fallbackText}>Discover places on the map</Text>
-              <TouchableOpacity
-                style={styles.fallbackButton}
-                onPress={handleExploreNearby}
-              >
-                <Text style={styles.fallbackButtonText}>Explore Map</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        )}
 
         {/* All Categories - 2 Column Grid */}
         {categories && categories.length > 8 && (
