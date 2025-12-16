@@ -63,12 +63,13 @@ export default function PlacePreviewBottomSheet({
       ref={bottomSheetRef}
       index={visible ? snapToIndex : -1}
       snapPoints={snapPoints}
-        onChange={handleSheetChanges}
-        enablePanDownToClose={true}
-        backgroundStyle={styles.bottomSheetBackground}
-        handleIndicatorStyle={styles.handleIndicator}
-        animateOnMount={true}
-      >
+      onChange={handleSheetChanges}
+      enablePanDownToClose={true}
+      backgroundStyle={styles.bottomSheetBackground}
+      handleIndicatorStyle={styles.handleIndicator}
+      animateOnMount={true}
+      enableDynamicSizing={false}
+    >
         <BottomSheetScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
