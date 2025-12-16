@@ -7,7 +7,6 @@ import {
   Image,
 } from 'react-native';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import { Place } from '../types';
 import RatingStars from './RatingStars';
