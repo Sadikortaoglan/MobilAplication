@@ -54,17 +54,16 @@ export default function PlacePreviewBottomSheet({
     }
   }, [visible, place, snapToIndex]);
 
-  if (!place || !visible) return null;
+  if (!place) return null;
 
   const coverPhoto = place.photos?.find((photo) => photo.isCover) || place.photos?.[0];
   const showTrending = place.isTrending || (place.visitCountLast7Days && place.visitCountLast7Days > 10);
 
   return (
-    <GestureHandlerRootView style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={snapToIndex}
-        snapPoints={snapPoints}
+    <BottomSheet
+      ref={bottomSheetRef}
+      index={visible ? snapToIndex : -1}
+      snapPoints={snapPoints}
         onChange={handleSheetChanges}
         enablePanDownToClose={true}
         backgroundStyle={styles.bottomSheetBackground}
