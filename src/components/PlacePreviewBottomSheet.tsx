@@ -44,13 +44,28 @@ export default function PlacePreviewBottomSheet({
   useEffect(() => {
     if (!bottomSheetRef.current) return;
 
-    if (visible && place) {
-      // Open to specified snap point
-      bottomSheetRef.current.snapToIndex(snapToIndex);
-    } else {
-      // Close sheet
-      bottomSheetRef.current.close();
-    }
+    // Use setTimeout to ensure native module is ready
+    const timeoutId = setTimeout(() => {
+      if (!bottomSheetRef.current) return;
+
+      if (visible && place) {
+        // Open to specified snap point
+        try {
+          bottomSheetRef.current.snapToIndex(snapToIndex);
+        } catch (error) {
+          console.warn('BottomSheet snapToIndex error:', error);
+        }
+      } else {
+        // Close sheet
+        try {
+          bottomSheetRef.current.close();
+        } catch (error) {
+          console.warn('BottomSheet close error:', error);
+        }
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [visible, place, snapToIndex]);
 
   if (!place) return null;
