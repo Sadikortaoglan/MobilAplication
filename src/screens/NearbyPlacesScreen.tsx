@@ -374,7 +374,11 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.background,
     gap: spacing.md,
-    ...shadowSm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
     minHeight: 56,
   },
   suggestionIconContainer: {
