@@ -83,7 +83,10 @@ const API_BASE_URL = getApiUrl();
 
 // Debug için (geliştirme sırasında kontrol edebilirsiniz)
 if (__DEV__) {
+  // API Base URL logged only in development
+if (__DEV__) {
   console.log('🔗 API Base URL:', API_BASE_URL);
+}
 }
 
 class ApiService {
@@ -210,7 +213,9 @@ class ApiService {
     try {
       const response = await this.client.post('/api/places/submit', payload); // Backend uses /api/places/submit
       if (__DEV__) {
-        console.log('✅ Add Place Response:', response.status, response.data);
+        if (__DEV__) {
+          console.log('✅ Add Place Response:', response.status, response.data);
+        }
       }
       return response.data;
     } catch (error: any) {

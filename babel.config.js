@@ -1,7 +1,15 @@
 module.exports = function(api) {
   api.cache(true);
   return {
-    presets: ['babel-preset-expo'],
+    presets: [
+      [
+        'babel-preset-expo',
+        {
+          // Suppress EXPO_OS warning by ensuring proper env var handling
+          jsxRuntime: 'automatic',
+        },
+      ],
+    ],
     plugins: [
       [
         'inline-dotenv',
@@ -20,6 +28,11 @@ module.exports = function(api) {
         },
       ],
     ],
+    env: {
+      production: {
+        plugins: ['react-native-paper/babel'],
+      },
+    },
   };
 };
 
