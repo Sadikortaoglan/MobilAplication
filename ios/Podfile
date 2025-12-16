@@ -24,10 +24,11 @@ prepare_react_native_project!
 #   }
 # }
 # ```
-flipper_config = FlipperConfiguration.disabled
+# Flipper disabled for Expo - use nil instead of FlipperConfiguration
+flipper_config = nil
 if ENV['NO_FLIPPER'] == '1' then
   # Explicitly disabled through environment variables
-  flipper_config = FlipperConfiguration.disabled
+  flipper_config = nil
 elsif podfile_properties.key?('ios.flipper') then
   # Configure Flipper in Podfile.properties.json
   if podfile_properties['ios.flipper'] == 'true' then
