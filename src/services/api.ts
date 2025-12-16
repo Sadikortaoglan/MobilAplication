@@ -298,12 +298,12 @@ class ApiService {
     return response.data;
   }
 
-  // Discovery endpoints (to be implemented in backend)
+  // Discovery endpoints
   async getTrendingPlaces(latitude?: number, longitude?: number, limit: number = 20) {
     const params: any = { limit };
     if (latitude && longitude) {
-      params.latitude = latitude;
-      params.longitude = longitude;
+      params.lat = latitude; // Backend uses 'lat' not 'latitude'
+      params.lng = longitude; // Backend uses 'lng' not 'longitude'
     }
     const response = await this.client.get('/api/discover/trending', { params });
     return response.data;
@@ -312,8 +312,8 @@ class ApiService {
   async getPopularThisWeek(latitude?: number, longitude?: number, limit: number = 20) {
     const params: any = { limit };
     if (latitude && longitude) {
-      params.latitude = latitude;
-      params.longitude = longitude;
+      params.lat = latitude; // Backend uses 'lat' not 'latitude'
+      params.lng = longitude; // Backend uses 'lng' not 'longitude'
     }
     const response = await this.client.get('/api/discover/popular-this-week', { params });
     return response.data;
@@ -322,8 +322,8 @@ class ApiService {
   async getHiddenGems(latitude?: number, longitude?: number, limit: number = 20) {
     const params: any = { limit };
     if (latitude && longitude) {
-      params.latitude = latitude;
-      params.longitude = longitude;
+      params.lat = latitude; // Backend uses 'lat' not 'latitude'
+      params.lng = longitude; // Backend uses 'lng' not 'longitude'
     }
     const response = await this.client.get('/api/discover/hidden-gems', { params });
     return response.data;
@@ -333,8 +333,8 @@ class ApiService {
   async getNearbyActive(latitude?: number, longitude?: number, limit: number = 20) {
     const params: any = { limit };
     if (latitude && longitude) {
-      params.latitude = latitude;
-      params.longitude = longitude;
+      params.lat = latitude; // Backend uses 'lat' not 'latitude'
+      params.lng = longitude; // Backend uses 'lng' not 'longitude'
     }
     try {
       const response = await this.client.get('/api/discover/nearby-active', { params });
@@ -357,7 +357,7 @@ class ApiService {
 
   // Visited timeline
   async getVisitedTimeline(page: number = 0, size: number = 20, sort: 'visitedAt' | 'visitedAtAsc' = 'visitedAt') {
-    const response = await this.client.get('/api/users/me/visited-timeline', {
+    const response = await this.client.get('/api/user/me/visited-timeline', { // Backend uses /api/user/me not /api/users/me
       params: { page, size, sort },
     });
     return response.data;
@@ -376,11 +376,12 @@ class ApiService {
     east: number;
     west: number;
   }, zoom?: number, categoryId?: number) {
+    // Backend uses minLat/maxLat/minLng/maxLng instead of north/south/east/west
     const params: any = {
-      north: bounds.north,
-      south: bounds.south,
-      east: bounds.east,
-      west: bounds.west,
+      minLat: bounds.south,
+      maxLat: bounds.north,
+      minLng: bounds.west,
+      maxLng: bounds.east,
     };
     if (zoom !== undefined) params.zoom = zoom;
     if (categoryId !== undefined) params.categoryId = categoryId;
