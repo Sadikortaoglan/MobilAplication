@@ -95,19 +95,20 @@ export const borderRadius = {
 
 // Platform-safe shadow helpers
 // Using explicit function to guarantee non-undefined return
-const createShadow = (ios: any, android: any, web?: any) => {
+// CRITICAL: This function MUST always return a valid object to prevent runtime errors
+const createShadow = (ios: any, android: any, web?: any): any => {
   const platform = Platform.OS;
   if (platform === 'ios') {
-    return ios;
+    return ios || {};
   }
   if (platform === 'android') {
-    return android;
+    return android || {};
   }
   if (platform === 'web' && web) {
-    return web;
+    return web || {};
   }
-  // Default fallback - always return valid object
-  return ios;
+  // Default fallback - always return valid object (never undefined)
+  return ios || {};
 };
 
 export const shadowSm = createShadow(
@@ -171,16 +172,27 @@ export const shadowXl = createShadow(
 );
 
 // Card styles for consistency
+// Note: Using direct shadow references to avoid circular dependency
 export const cardStyles = {
   default: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
-    ...shadowMd,
+    // shadowMd applied directly - no spread to avoid runtime issues
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   elevated: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
-    ...shadowLg,
+    // shadowLg applied directly
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   },
   flat: {
     backgroundColor: colors.background,
