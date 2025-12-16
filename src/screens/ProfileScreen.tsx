@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
-import { colors, spacing, typography, borderRadius, shadowMd, shadowSm } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius, shadowSm } from '../theme/designSystem';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
@@ -184,7 +184,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.lg,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     minWidth: 200,
   },
   signInButtonText: {
@@ -204,7 +208,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   avatarText: {
     fontSize: 40,
@@ -251,7 +259,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.lg,
     gap: spacing.sm,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     minHeight: 56,
   },
   logoutButtonText: {

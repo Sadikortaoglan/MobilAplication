@@ -13,7 +13,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { Place } from '../types';
 import RatingStars from './RatingStars';
-import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 interface PlacePreviewBottomSheetProps {
   place: Place | null;
@@ -192,7 +192,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     zIndex: 1000,
   },
   handle: {

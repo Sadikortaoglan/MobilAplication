@@ -16,7 +16,7 @@ import { apiService } from '../services/api';
 import PlaceCard from '../components/PlaceCard';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { Place, VisitedTimelineItem, UserStats } from '../types';
-import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 export default function SavedScreen() {
   const { isAuthenticated, showAuthModal } = useAuthStore();
@@ -380,7 +380,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.lg,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     minWidth: 200,
   },
   signInButtonText: {

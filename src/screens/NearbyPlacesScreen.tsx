@@ -17,7 +17,7 @@ import PlaceCard from '../components/PlaceCard';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { Place } from '../types';
 import { ExploreStackParamList } from '../navigation/types';
-import { colors, spacing, typography, borderRadius, shadowMd, shadowSm } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius, shadowSm } from '../theme/designSystem';
 
 type NearbyPlacesRouteProp = RouteProp<ExploreStackParamList, 'NearbyPlaces'>;
 
@@ -311,7 +311,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.lg,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     minWidth: 200,
   },
   buttonText: {

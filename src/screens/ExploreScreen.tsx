@@ -19,7 +19,7 @@ import CategoryCard from '../components/CategoryCard';
 import PlaceCard from '../components/PlaceCard';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { Category, Place, Photo } from '../types';
-import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 export default function ExploreScreen() {
   const navigation = useNavigation<any>();
@@ -538,7 +538,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     gap: spacing.sm,
     marginTop: spacing.md,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   primaryButtonIcon: {
     width: 36,
@@ -668,7 +672,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.lg,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   ultimateFallbackButtonText: {
     ...typography.button,

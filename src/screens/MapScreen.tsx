@@ -15,7 +15,7 @@ import CustomMapView from '../components/MapView';
 import PlacePreviewBottomSheet from '../components/PlacePreviewBottomSheet';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { Place } from '../types';
-import { colors, spacing, typography, borderRadius, shadowLg } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 
 export default function MapScreen() {
   const navigation = useNavigation<any>();
@@ -267,7 +267,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.lg,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     minWidth: 200,
   },
   buttonText: {
@@ -332,7 +336,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.lg,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   emptyButtonText: {
     ...typography.button,

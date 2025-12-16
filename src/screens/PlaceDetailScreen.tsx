@@ -24,7 +24,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import ImageCarousel from '../components/ImageCarousel';
 import MiniMapPreview from '../components/MiniMapPreview';
 import { Review, Photo } from '../types';
-import { colors, spacing, typography, borderRadius, shadowMd, shadowSm } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius, shadowSm } from '../theme/designSystem';
 import { sanitizeErrorMessage } from '../utils/errorHandler';
 
 export default function PlaceDetailScreen() {
@@ -733,7 +733,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     zIndex: 2,
   },
   sheetHandle: {

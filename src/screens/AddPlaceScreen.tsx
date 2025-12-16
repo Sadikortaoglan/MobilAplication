@@ -19,7 +19,7 @@ import { useLocationStore } from '../store/locationStore';
 import LoadingIndicator from '../components/LoadingIndicator';
 import MiniMapPreview from '../components/MiniMapPreview';
 import { Category } from '../types';
-import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 import { sanitizeErrorMessage } from '../utils/errorHandler';
 
 type Step = 1 | 2 | 3 | 4;
@@ -647,7 +647,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.md,
     gap: spacing.sm,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   nextButtonText: {
     ...typography.button,
@@ -662,7 +666,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.md,
     gap: spacing.sm,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonDisabled: {
     opacity: 0.6,

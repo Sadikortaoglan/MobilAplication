@@ -1,6 +1,45 @@
 // Design System - Production-ready, consumer-grade
 import { Platform } from 'react-native';
 
+// ============================================================================
+// Shadow styles - Use inline styles in StyleSheet.create() instead of exports
+// ============================================================================
+// NOTE: shadowMd export removed to prevent runtime errors
+// Use inline shadow properties directly in StyleSheet definitions:
+// shadowColor: '#000',
+// shadowOffset: { width: 0, height: 2 },
+// shadowOpacity: 0.1,
+// shadowRadius: 4,
+// elevation: 3,
+// ============================================================================
+
+// Small shadow (kept for backward compatibility)
+export const shadowSm = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.05,
+  shadowRadius: 2,
+  elevation: 2,
+};
+
+// Large shadow (kept for backward compatibility)
+export const shadowLg = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.15,
+  shadowRadius: 8,
+  elevation: 5,
+};
+
+// Extra large shadow (kept for backward compatibility)
+export const shadowXl = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.2,
+  shadowRadius: 16,
+  elevation: 8,
+};
+
 export const colors = {
   // Primary - Modern blue
   primary: '#007AFF',
@@ -92,108 +131,6 @@ export const borderRadius = {
   xl: 24,
   full: 9999,
 };
-
-// Platform-safe shadow helpers
-// CRITICAL FIX: Direct object exports to prevent runtime errors
-// No function calls that could fail at runtime
-
-// Small shadow
-export const shadowSm = Platform.select({
-  ios: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  android: {
-    elevation: 2,
-  },
-  web: {
-    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
-  },
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-}) || {};
-
-// Medium shadow - CRITICAL: Must always exist
-export const shadowMd = Platform.select({
-  ios: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  android: {
-    elevation: 3,
-  },
-  web: {
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-  },
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-}) || {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 3,
-};
-
-// Large shadow
-export const shadowLg = Platform.select({
-  ios: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-  android: {
-    elevation: 5,
-  },
-  web: {
-    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)',
-  },
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-}) || {};
-
-// Extra large shadow
-export const shadowXl = Platform.select({
-  ios: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-  },
-  android: {
-    elevation: 8,
-  },
-  web: {
-    boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.2)',
-  },
-  default: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-}) || {};
 
 // Card styles for consistency
 // Note: Using direct shadow references to avoid circular dependency

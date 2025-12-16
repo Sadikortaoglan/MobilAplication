@@ -15,7 +15,7 @@ import { useAuthStore } from '../store/authStore';
 import ReviewForm from '../components/ReviewForm';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { ExploreStackParamList } from '../navigation/types';
-import { colors, spacing, typography, borderRadius, shadowMd } from '../theme/designSystem';
+import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
 import { sanitizeErrorMessage } from '../utils/errorHandler';
 
 type AddReviewScreenRouteProp = RouteProp<ExploreStackParamList, 'AddReview'>;
@@ -231,7 +231,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.lg,
-    ...shadowMd,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     minWidth: 200,
   },
   backButtonText: {
