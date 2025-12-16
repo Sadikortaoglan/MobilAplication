@@ -61,6 +61,63 @@ export interface Review {
   user: User;
   createdAt: string;
   updatedAt: string;
+  helpfulCount?: number;
+}
+
+export interface VisitedTimelineItem {
+  placeId: number;
+  placeName: string;
+  category: PlaceCategory;
+  visitedAt: string;
+  photos?: Photo[];
+}
+
+export interface UserStats {
+  visitedCount: number;
+  reviewCount: number;
+  favoriteCount: number;
+  helpfulReviewsGiven?: number;
+}
+
+export interface DiscoveryResponse {
+  places: Place[];
+  context: 'trending' | 'popular-this-week' | 'hidden-gems';
+  fallbackApplied: boolean;
+  fallbackReason?: string;
+  generatedAt: string;
+  metadata?: {
+    totalPlaces: number;
+    userLocation?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+}
+
+export interface MapMarker {
+  id: number;
+  latitude: number;
+  longitude: number;
+  name: string;
+  category: PlaceCategory;
+  visitIntensity: number;
+  isTrending: boolean;
+  averageRating: number;
+  reviewCount: number;
+  createdAt: string;
+}
+
+export interface MapMarkersResponse {
+  markers: MapMarker[];
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+  totalMarkers: number;
+  zoomLevel?: number;
+  clustered?: boolean;
 }
 
 export interface Location {

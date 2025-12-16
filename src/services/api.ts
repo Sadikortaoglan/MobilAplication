@@ -297,6 +297,93 @@ class ApiService {
     const response = await this.client.delete(`/api/places/${placeId}/reviews/${reviewId}`);
     return response.data;
   }
+
+  // Discovery endpoints (to be implemented in backend)
+  async getTrendingPlaces(latitude?: number, longitude?: number, limit: number = 20) {
+    const params: any = { limit };
+    if (latitude && longitude) {
+      params.latitude = latitude;
+      params.longitude = longitude;
+    }
+    const response = await this.client.get('/api/discover/trending', { params });
+    return response.data;
+  }
+
+  async getPopularThisWeek(latitude?: number, longitude?: number, limit: number = 20) {
+    const params: any = { limit };
+    if (latitude && longitude) {
+      params.latitude = latitude;
+      params.longitude = longitude;
+    }
+    const response = await this.client.get('/api/discover/popular-this-week', { params });
+    return response.data;
+  }
+
+  async getHiddenGems(latitude?: number, longitude?: number, limit: number = 20) {
+    const params: any = { limit };
+    if (latitude && longitude) {
+      params.latitude = latitude;
+      params.longitude = longitude;
+    }
+    const response = await this.client.get('/api/discover/hidden-gems', { params });
+    return response.data;
+  }
+
+  // Visited timeline
+  async getVisitedTimeline(page: number = 0, size: number = 20, sort: 'visitedAt' | 'visitedAtAsc' = 'visitedAt') {
+    const response = await this.client.get('/api/users/me/visited-timeline', {
+      params: { page, size, sort },
+    });
+    return response.data;
+  }
+
+  // User stats
+  async getUserStats() {
+    const response = await this.client.get('/api/users/me/stats');
+    return response.data;
+  }
+
+  // Map endpoints
+  async getMapMarkers(bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  }, zoom?: number, categoryId?: number) {
+    const params: any = {
+      north: bounds.north,
+      south: bounds.south,
+      east: bounds.east,
+      west: bounds.west,
+    };
+    if (zoom !== undefined) params.zoom = zoom;
+    if (categoryId !== undefined) params.categoryId = categoryId;
+    const response = await this.client.get('/api/map/markers', { params });
+    return response.data;
+  }
+
+  async getMapHeatmap(bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  }, gridSize: number = 10) {
+    const params = {
+      north: bounds.north,
+      south: bounds.south,
+      east: bounds.east,
+      west: bounds.west,
+      gridSize,
+    };
+    const response = await this.client.get('/api/map/heatmap', { params });
+    return response.data;
+  }
+
+  // Review helpful
+  async markReviewHelpful(placeId: number, reviewId: number) {
+    const response = await this.client.post(`/api/places/${placeId}/reviews/${reviewId}/helpful`);
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();
