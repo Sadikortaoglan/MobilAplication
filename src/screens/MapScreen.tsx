@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Text,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -13,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api';
 import { useLocationStore } from '../store/locationStore';
 import CustomMapView from '../components/MapView';
+import PlacePreviewBottomSheet from '../components/PlacePreviewBottomSheet';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { Place } from '../types';
 import { colors, spacing, typography, borderRadius, shadowLg } from '../theme/designSystem';
@@ -20,28 +20,96 @@ import { colors, spacing, typography, borderRadius, shadowLg } from '../theme/de
 export default function MapScreen() {
   const navigation = useNavigation<any>();
   const { currentLocation, fetchLocation } = useLocationStore();
-  const [showList, setShowList] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [mapRegion, setMapRegion] = useState<any>(null);
+  const mapRef = useRef<any>(null);
 
-  const { data: placesResponse, isLoading } = useQuery({
-    queryKey: ['places', 'map', currentLocation?.latitude, currentLocation?.longitude],
+  // Default location (Istanbul) for fallback
+  const defaultLocation = { latitude: 41.0082, longitude: 28.9784 };
+  const mapCenter = currentLocation || defaultLocation;
+
+  // Try map markers endpoint first, fallback to search
+  const { data: mapMarkersResponse, isLoading: markersLoading } = useQuery({
+    queryKey: ['mapMarkers', mapCenter.latitude, mapCenter.longitude, mapRegion],
     queryFn: async () => {
-      if (!currentLocation) {
-        await fetchLocation();
+      try {
+        // Calculate bounds from region or use default
+        const bounds = mapRegion || {
+          north: mapCenter.latitude + 0.05,
+          south: mapCenter.latitude - 0.05,
+          east: mapCenter.longitude + 0.05,
+          west: mapCenter.longitude - 0.05,
+        };
+        return await apiService.getMapMarkers(bounds);
+      } catch (error) {
+        // Fallback to regular search
         return null;
       }
+    },
+    retry: 1,
+  });
+
+  // Fallback: Regular search
+  const { data: placesResponse, isLoading: placesLoading } = useQuery({
+    queryKey: ['places', 'map', mapCenter.latitude, mapCenter.longitude],
+    queryFn: async () => {
       return apiService.searchPlaces({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        maxDistanceKm: 10,
+        latitude: mapCenter.latitude,
+        longitude: mapCenter.longitude,
+        maxDistanceKm: 50, // Wider radius for map
         page: 0,
-        size: 50,
+        size: 100, // More places for map
         sort: 'distance',
       });
     },
-    enabled: !!currentLocation,
+    enabled: !mapMarkersResponse || (mapMarkersResponse?.markers?.length || 0) === 0,
   });
 
-  const places = placesResponse?.content || [];
+  // Fallback: Trending places if no nearby data
+  const { data: trendingResponse } = useQuery({
+    queryKey: ['trendingFallback', mapCenter.latitude, mapCenter.longitude],
+    queryFn: async () => {
+      try {
+        return await apiService.getTrendingPlaces(mapCenter.latitude, mapCenter.longitude, 50);
+      } catch (error) {
+        return null;
+      }
+    },
+    enabled: (!mapMarkersResponse || (mapMarkersResponse?.markers?.length || 0) === 0) &&
+             (!placesResponse || (placesResponse?.content?.length || 0) === 0),
+  });
+
+  // Extract places from different sources
+  const mapMarkers = mapMarkersResponse?.markers || [];
+  const searchPlaces = placesResponse?.content || [];
+  const trendingPlaces = trendingResponse?.places || [];
+
+  // Convert map markers to places if needed
+  const placesFromMarkers = mapMarkers.map((marker: any) => ({
+    id: marker.id,
+    name: marker.name,
+    latitude: marker.latitude,
+    longitude: marker.longitude,
+    category: marker.category,
+    averageRating: marker.averageRating,
+    reviewCount: marker.reviewCount,
+    address: marker.address || '',
+    city: marker.city || 'Istanbul',
+    district: marker.district || '',
+    photos: marker.photos || [],
+    distance: marker.distance,
+    isTrending: marker.isTrending,
+    visitCountLast7Days: marker.visitIntensity ? Math.round(marker.visitIntensity * 10) : undefined,
+  }));
+
+  // Priority: map markers > search places > trending places
+  const places = placesFromMarkers.length > 0
+    ? placesFromMarkers
+    : searchPlaces.length > 0
+    ? searchPlaces
+    : trendingPlaces;
+
+  const isLoading = markersLoading || placesLoading;
 
   useEffect(() => {
     if (!currentLocation) {
@@ -50,10 +118,25 @@ export default function MapScreen() {
   }, []);
 
   const handleMarkerPress = (place: Place) => {
-    // Navigate to Explore stack for PlaceDetail
-    navigation.getParent()?.navigate('Explore', {
-      screen: 'PlaceDetail',
-      params: { placeId: place.id },
+    setSelectedPlace(place);
+  };
+
+  const handleViewDetails = () => {
+    if (selectedPlace) {
+      navigation.getParent()?.navigate('Explore', {
+        screen: 'PlaceDetail',
+        params: { placeId: selectedPlace.id },
+      });
+      setSelectedPlace(null);
+    }
+  };
+
+  const handleMapRegionChange = (region: any) => {
+    setMapRegion({
+      north: region.latitude + region.latitudeDelta / 2,
+      south: region.latitude - region.latitudeDelta / 2,
+      east: region.longitude + region.longitudeDelta / 2,
+      west: region.longitude - region.longitudeDelta / 2,
     });
   };
 
@@ -99,48 +182,28 @@ export default function MapScreen() {
     );
   }
 
-  if (places.length === 0 && !isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={[]}>
-        <View style={styles.mapContainer}>
-          <CustomMapView
-            places={[]}
-            currentLocation={currentLocation}
-            onMarkerPress={() => {}}
-          />
-        </View>
-        <View style={styles.emptyOverlay}>
-          <View style={styles.emptyContent}>
-            <View style={styles.emptyIconContainer}>
-              <Feather name="map" size={64} color={colors.primary} />
-            </View>
-            <Text style={styles.emptyTitle}>No places found nearby</Text>
-            <Text style={styles.emptySubtext}>
-              Try expanding your search or browse popular places
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={() => navigation.getParent()?.navigate('Explore')}
-              activeOpacity={0.8}
-            >
-              <Feather name="compass" size={18} color={colors.background} />
-              <Text style={styles.emptyButtonText}>Browse All Places</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Never show empty map - always show something
+  const displayPlaces = places.length > 0 ? places : [];
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.mapContainer}>
         <CustomMapView
-          places={places}
-          currentLocation={currentLocation}
+          places={displayPlaces}
+          currentLocation={currentLocation || defaultLocation}
           onMarkerPress={handleMarkerPress}
+          onRegionChange={handleMapRegionChange}
+          mapRef={mapRef}
         />
       </View>
+
+      {/* Place Preview Bottom Sheet */}
+      <PlacePreviewBottomSheet
+        place={selectedPlace}
+        visible={!!selectedPlace}
+        onClose={() => setSelectedPlace(null)}
+        onViewDetails={handleViewDetails}
+      />
 
       {/* Floating Action Button */}
       <TouchableOpacity
@@ -148,7 +211,7 @@ export default function MapScreen() {
         onPress={handleShowList}
         activeOpacity={0.8}
       >
-        <Feather name="list" size={20} color={colors.background} />
+        <Feather name="list" size={20} color={colors.text} />
         <Text style={styles.floatingButtonText}>Show list</Text>
       </TouchableOpacity>
     </SafeAreaView>
