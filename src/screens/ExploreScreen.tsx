@@ -357,7 +357,7 @@ export default function ExploreScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <Feather name="gem" size={20} color={colors.success} />
+                <Feather name="star" size={20} color={colors.success} />
                 <Text style={styles.sectionTitle}>Hidden gems</Text>
               </View>
               {hiddenGems.length > 5 && (
