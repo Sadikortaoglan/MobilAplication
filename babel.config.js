@@ -5,7 +5,6 @@ module.exports = function(api) {
       [
         'babel-preset-expo',
         {
-          // Suppress EXPO_OS warning by ensuring proper env var handling
           jsxRuntime: 'automatic',
         },
       ],
@@ -27,6 +26,7 @@ module.exports = function(api) {
           },
         },
       ],
+      // CRITICAL: react-native-reanimated/plugin MUST be last for BottomSheet to work
       'react-native-reanimated/plugin', // Must be last
     ],
   };

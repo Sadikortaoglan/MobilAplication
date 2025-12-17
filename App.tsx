@@ -1,7 +1,6 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -16,20 +15,12 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
-  const navigationRef = useRef<any>(null);
-
-  // Expose navigation ref globally for auth modal
-  React.useEffect(() => {
-    (global as any).navigationRef = navigationRef;
-  }, []);
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <NavigationContainer ref={navigationRef}>
+          <NavigationContainer>
             <AppNavigator />
-            <StatusBar style="auto" />
           </NavigationContainer>
         </QueryClientProvider>
       </SafeAreaProvider>

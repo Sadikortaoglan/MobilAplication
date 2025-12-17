@@ -1,310 +1,154 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Text,
-  ScrollView,
-} from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { Feather } from '@expo/vector-icons';
+import MapView, { Marker, Region } from 'react-native-maps';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api';
 import { useLocationStore } from '../store/locationStore';
-import CustomMapView from '../components/MapView';
-import PlacePreviewBottomSheet from '../components/PlacePreviewBottomSheet';
 import LoadingIndicator from '../components/LoadingIndicator';
-import { Place, Category } from '../types';
-import { colors, spacing, typography, borderRadius } from '../theme/designSystem';
+import { colors } from '../theme/designSystem';
+import { Place } from '../types';
+
+// STEP 3: STRICT COORDINATE VALIDATION
+// Helper: Validate coordinates - MANDATORY before passing to native
+const isValidCoord = (lat: any, lng: any): boolean => {
+  const latNum = Number(lat);
+  const lngNum = Number(lng);
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    !isNaN(latNum) &&
+    !isNaN(lngNum) &&
+    isFinite(latNum) &&
+    isFinite(lngNum) &&
+    latNum >= -90 &&
+    latNum <= 90 &&
+    lngNum >= -180 &&
+    lngNum <= 180
+  );
+};
+
+// Safe initial region (Istanbul) - NUMBERS ONLY
+const SAFE_INITIAL_REGION: Region = {
+  latitude: 41.0082,
+  longitude: 28.9784,
+  latitudeDelta: 0.1,
+  longitudeDelta: 0.1,
+};
 
 export default function MapScreen() {
-  const navigation = useNavigation<any>();
-  const { currentLocation, fetchLocation } = useLocationStore();
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [mapRegion, setMapRegion] = useState<any>(null);
-  const [bottomSheetIndex, setBottomSheetIndex] = useState<number>(1); // 0=collapsed, 1=mid, 2=expanded
-  const mapRef = useRef<any>(null);
+  // STEP 1: ✅ Re-enabled MapScreen
+  // STEP 2: ✅ Minimal implementation - CONFIRMED WORKING
+  // STEP 3: Adding API markers with STRICT validation
+  
+  const { currentLocation } = useLocationStore();
+  const mapCenter = currentLocation || { latitude: 41.0082, longitude: 28.9784 };
 
-  // Default location (Istanbul) for fallback
-  const defaultLocation = { latitude: 41.0082, longitude: 28.9784 };
-  const mapCenter = currentLocation || defaultLocation;
-
-  // Fetch categories
-  const { data: categories } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => apiService.getCategories(),
-  });
-
-  // Flatten categories for display
-  const flattenCategories = (categories: Category[]): Category[] => {
-    const result: Category[] = [];
-    categories?.forEach((category) => {
-      result.push(category);
-      if (category.children && category.children.length > 0) {
-        result.push(...flattenCategories(category.children));
-      }
-    });
-    return result;
-  };
-
-  const displayCategories = categories ? flattenCategories(categories) : [];
-
-  // Try map markers endpoint first, fallback to search
-  const { data: mapMarkersResponse, isLoading: markersLoading } = useQuery({
-    queryKey: ['mapMarkers', mapCenter.latitude, mapCenter.longitude, mapRegion, selectedCategory],
-    queryFn: async () => {
-      try {
-        // Calculate bounds from region or use default
-        const bounds = mapRegion || {
-          north: mapCenter.latitude + 0.05,
-          south: mapCenter.latitude - 0.05,
-          east: mapCenter.longitude + 0.05,
-          west: mapCenter.longitude - 0.05,
-        };
-        return await apiService.getMapMarkers(bounds, undefined, selectedCategory || undefined);
-      } catch (error) {
-        // Fallback to regular search
-        return null;
-      }
-    },
-    retry: 1,
-  });
-
-  // Fallback: Regular search
-  const { data: placesResponse, isLoading: placesLoading } = useQuery({
-    queryKey: ['places', 'map', mapCenter.latitude, mapCenter.longitude, selectedCategory],
+  // Fetch places from API
+  const { data: placesResponse, isLoading } = useQuery({
+    queryKey: ['places', 'map', mapCenter.latitude, mapCenter.longitude],
     queryFn: async () => {
       return apiService.searchPlaces({
         latitude: mapCenter.latitude,
         longitude: mapCenter.longitude,
-        categoryId: selectedCategory || undefined,
-        maxDistanceKm: 50, // Wider radius for map
+        maxDistanceKm: 50,
         page: 0,
-        size: 100, // More places for map
+        size: 100,
         sort: 'distance',
       });
     },
-    enabled: (!mapMarkersResponse || (mapMarkersResponse?.markers?.length || 0) === 0),
+    retry: 1,
   });
 
-  // Fallback: Trending places if no nearby data
-  const { data: trendingResponse } = useQuery({
-    queryKey: ['trendingFallback', mapCenter.latitude, mapCenter.longitude],
-    queryFn: async () => {
-      try {
-        return await apiService.getTrendingPlaces(mapCenter.latitude, mapCenter.longitude, 50);
-      } catch (error) {
-        return null;
-      }
-    },
-    enabled: (!mapMarkersResponse || (mapMarkersResponse?.markers?.length || 0) === 0) &&
-             (!placesResponse || (placesResponse?.content?.length || 0) === 0),
-  });
-
-  // Extract places from different sources
-  const mapMarkers = mapMarkersResponse?.markers || [];
-  const searchPlaces = placesResponse?.content || [];
-  // Backend discovery endpoints return arrays directly
-  const trendingPlaces = Array.isArray(trendingResponse) ? trendingResponse : trendingResponse?.places || [];
-
-  // Convert map markers to places if needed
-  const placesFromMarkers = mapMarkers.map((marker: any) => ({
-    id: marker.id,
-    name: marker.name,
-    latitude: marker.latitude,
-    longitude: marker.longitude,
-    category: marker.category,
-    averageRating: marker.averageRating,
-    reviewCount: marker.reviewCount,
-    address: marker.address || '',
-    city: marker.city || 'Istanbul',
-    district: marker.district || '',
-    photos: marker.photos || [],
-    distance: marker.distance,
-    isTrending: marker.isTrending,
-    visitCountLast7Days: marker.visitIntensity ? Math.round(marker.visitIntensity * 10) : undefined,
-  }));
-
-  // Priority: map markers > search places > trending places
-  const allPlaces = placesFromMarkers.length > 0
-    ? placesFromMarkers
-    : searchPlaces.length > 0
-    ? searchPlaces
-    : trendingPlaces;
-
-  // Filter places by selected category
-  const filteredPlaces = selectedCategory
-    ? allPlaces.filter((place: Place) => {
-        // Check if place category matches selected category
-        if (place.category && typeof place.category === 'object' && place.category.id) {
-          return place.category.id === selectedCategory;
+  // STEP 3: STRICT VALIDATION - Filter invalid places BEFORE rendering
+  const validPlaces = useMemo(() => {
+    const places = placesResponse?.content || [];
+    
+    return places.filter((place: Place) => {
+      // CRITICAL: Must have id
+      if (!place || !place.id) {
+        if (__DEV__) {
+          console.warn('[MapScreen] Skipping place without id:', place);
         }
         return false;
-      })
-    : allPlaces;
+      }
 
-  const isLoading = markersLoading || placesLoading;
+      // CRITICAL: Validate coordinates
+      if (!isValidCoord(place.latitude, place.longitude)) {
+        if (__DEV__) {
+          console.warn('[MapScreen] Skipping place with invalid coordinates:', {
+            id: place.id,
+            latitude: place.latitude,
+            longitude: place.longitude,
+          });
+        }
+        return false;
+      }
 
-  useEffect(() => {
-    if (!currentLocation) {
-      fetchLocation();
+      return true;
+    }).map((place: Place) => ({
+      ...place,
+      // CRITICAL: Ensure coordinates are numbers
+      latitude: Number(place.latitude),
+      longitude: Number(place.longitude),
+    }));
+  }, [placesResponse]);
+
+  // Calculate safe initial region
+  const initialRegion: Region = useMemo(() => {
+    if (currentLocation && isValidCoord(currentLocation.latitude, currentLocation.longitude)) {
+      return {
+        latitude: Number(currentLocation.latitude),
+        longitude: Number(currentLocation.longitude),
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      };
     }
-  }, []);
+    return SAFE_INITIAL_REGION;
+  }, [currentLocation]);
 
-  const handleMarkerPress = (place: Place) => {
-    // Center map on marker
-    if (mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: place.latitude,
-        longitude: place.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }, 500);
-    }
-
-    // Set selected place and open bottom sheet to mid position
-    setSelectedPlace(place);
-    setBottomSheetIndex(1); // Mid position
-  };
-
-  const handleViewDetails = () => {
-    if (selectedPlace) {
-      navigation.getParent()?.navigate('Explore', {
-        screen: 'PlaceDetail',
-        params: { placeId: selectedPlace.id },
-      });
-      setSelectedPlace(null);
-      setBottomSheetIndex(1);
-    }
-  };
-
-  const handleMapRegionChange = (region: any) => {
-    setMapRegion({
-      north: region.latitude + region.latitudeDelta / 2,
-      south: region.latitude - region.latitudeDelta / 2,
-      east: region.longitude + region.longitudeDelta / 2,
-      west: region.longitude - region.longitudeDelta / 2,
-    });
-  };
-
-  const handleShowList = () => {
-    navigation.getParent()?.navigate('Explore', {
-      screen: 'NearbyPlaces',
-    });
-  };
-
-  const handleCategorySelect = (categoryId: number | null) => {
-    setSelectedCategory(categoryId);
-    // Close bottom sheet when changing category
-    setSelectedPlace(null);
-    setBottomSheetIndex(1);
-  };
-
-  if (isLoading && !currentLocation) {
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={[]}>
-        <LoadingIndicator message="Getting your location..." />
+        <LoadingIndicator message="Loading map..." />
       </SafeAreaView>
     );
   }
-
-  if (!currentLocation) {
-    return (
-      <SafeAreaView style={styles.container} edges={[]}>
-        <View style={styles.errorContainer}>
-          <View style={styles.errorIconContainer}>
-            <Feather name="map-pin" size={72} color={colors.primary} />
-          </View>
-          <Text style={styles.errorTitle}>Location permission required</Text>
-          <Text style={styles.errorSubtext}>
-            We need your location to show places on the map.{'\n'}
-            Your location is only used to find nearby places.
-          </Text>
-          <TouchableOpacity style={styles.button} onPress={fetchLocation} activeOpacity={0.8}>
-            <Feather name="map-pin" size={18} color={colors.background} />
-            <Text style={styles.buttonText}>Enable Location</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => navigation.getParent()?.navigate('Explore')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.secondaryButtonText}>Browse without location</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Never show empty map - always show something
-  const displayPlaces = filteredPlaces.length > 0 ? filteredPlaces : [];
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.mapContainer}>
-        <CustomMapView
-          places={displayPlaces}
-          currentLocation={currentLocation || defaultLocation}
-          onMarkerPress={handleMarkerPress}
-          onRegionChange={handleMapRegionChange}
-          mapRef={mapRef}
-        />
-
-        {/* Category Filter Chips */}
-        <View style={styles.categoryFilterContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryScrollContent}
-          >
-            <TouchableOpacity
-              style={[styles.categoryChip, !selectedCategory && styles.categoryChipSelected]}
-              onPress={() => handleCategorySelect(null)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextSelected]}>
-                All
-              </Text>
-            </TouchableOpacity>
-            {displayCategories.slice(0, 10).map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={[styles.categoryChip, selectedCategory === category.id && styles.categoryChipSelected]}
-                onPress={() => handleCategorySelect(category.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.categoryChipText, selectedCategory === category.id && styles.categoryChipTextSelected]}>
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        <MapView
+          style={styles.map}
+          initialRegion={initialRegion}
+          showsUserLocation={!!currentLocation && isValidCoord(currentLocation.latitude, currentLocation.longitude)}
+          showsMyLocationButton={false}
+          mapType="standard"
+          showsCompass={true}
+          showsScale={false}
+          rotateEnabled={true}
+          scrollEnabled={true}
+          zoomEnabled={true}
+          pitchEnabled={true}
+        >
+          {/* API markers - STRICTLY VALIDATED */}
+          {validPlaces.map((place: Place) => {
+            // SAFE: Already validated in useMemo
+            return (
+              <Marker
+                key={String(place.id)}
+                coordinate={{
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                }}
+                title={place.name || 'Place'}
+                description={place.address || ''}
+                pinColor="#FF3B30"
+              />
+            );
+          })}
+        </MapView>
       </View>
-
-      {/* Place Preview Bottom Sheet */}
-      <PlacePreviewBottomSheet
-        place={selectedPlace}
-        visible={!!selectedPlace}
-        onClose={() => {
-          setSelectedPlace(null);
-          setBottomSheetIndex(1);
-        }}
-        onViewDetails={handleViewDetails}
-        snapToIndex={bottomSheetIndex}
-      />
-
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.floatingButton}
-        onPress={handleShowList}
-        activeOpacity={0.8}
-      >
-        <Feather name="list" size={20} color={colors.text} />
-        <Text style={styles.floatingButtonText}>Show list</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -318,127 +162,8 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
-  categoryFilterContainer: {
-    position: 'absolute',
-    top: spacing.md,
-    left: 0,
-    right: 0,
-    paddingHorizontal: spacing.md,
-    zIndex: 100,
-  },
-  categoryScrollContent: {
-    paddingRight: spacing.md,
-    gap: spacing.sm,
-  },
-  categoryChip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.background,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    marginRight: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  categoryChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  categoryChipText: {
-    ...typography.buttonSmall,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  categoryChipTextSelected: {
-    color: colors.background,
-    fontWeight: '700',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  errorIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: `${colors.primary}15`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  errorTitle: {
-    ...typography.h2,
-    color: colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-    fontWeight: '700',
-  },
-  errorSubtext: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-    lineHeight: 24,
-    paddingHorizontal: spacing.lg,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    minWidth: 200,
-  },
-  buttonText: {
-    ...typography.button,
-    color: colors.background,
-    fontWeight: '700',
-  },
-  secondaryButton: {
-    marginTop: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  secondaryButtonText: {
-    ...typography.buttonSmall,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  floatingButton: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.lg,
-    right: spacing.lg,
-    backgroundColor: colors.background,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  floatingButtonText: {
-    ...typography.button,
-    color: colors.text,
+  map: {
+    width: '100%',
+    height: '100%',
   },
 });

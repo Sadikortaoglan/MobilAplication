@@ -42,22 +42,10 @@ const getStorage = (): StorageInterface => {
 
 const storage = getStorage();
 
-// Backend API URL - .env dosyasından veya app.json'dan okunur
+// Backend API URL - app.json'dan (Constants.expoConfig.extra) okunur
+// NO process.env usage - Expo runtime does not support it
 const getApiUrl = () => {
-  // Önce .env dosyasından (babel-plugin-inline-dotenv ile)
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    let url = process.env.EXPO_PUBLIC_API_URL;
-    // Mobil cihazda localhost yerine bilgisayarın IP'sini kullan
-    if (Platform.OS !== 'web' && url.includes('localhost')) {
-      // Expo development server'ın IP'sini al
-      const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
-      if (expoHost && expoHost !== 'localhost' && expoHost !== '127.0.0.1') {
-        url = url.replace('localhost', expoHost).replace('127.0.0.1', expoHost);
-      }
-    }
-    return url;
-  }
-  // Sonra app.json'dan (Constants.expoConfig.extra)
+  // app.json'dan (Constants.expoConfig.extra)
   if (Constants.expoConfig?.extra?.apiUrl) {
     let url = Constants.expoConfig.extra.apiUrl;
     // Mobil cihazda localhost yerine bilgisayarın IP'sini kullan

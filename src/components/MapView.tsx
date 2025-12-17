@@ -25,19 +25,42 @@ export default function CustomMapView({
   const mapRef = externalMapRef || internalMapRef;
   const [currentRegion, setCurrentRegion] = React.useState<Region | null>(null);
 
-  const initialRegion: Region = currentLocation
-    ? {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
+  // HARD LOGGING: Track component lifecycle and data
+  React.useEffect(() => {
+    if (__DEV__) {
+      console.log('[MapView] Component mounted/updated:', {
+        placesCount: places?.length || 0,
+        hasCurrentLocation: !!currentLocation,
+        currentLocationCoords: currentLocation ? {
+          lat: currentLocation.latitude,
+          lng: currentLocation.longitude,
+        } : null,
+      });
+    }
+  }, [places?.length, currentLocation]);
+
+  // CRITICAL: Validate and ensure initialRegion always has valid numeric values
+  const initialRegion: Region = React.useMemo(() => {
+    if (currentLocation && 
+        typeof currentLocation.latitude === 'number' && 
+        typeof currentLocation.longitude === 'number' &&
+        !isNaN(currentLocation.latitude) &&
+        !isNaN(currentLocation.longitude)) {
+      return {
+        latitude: Number(currentLocation.latitude),
+        longitude: Number(currentLocation.longitude),
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
-      }
-    : {
-        latitude: 41.0082,
-        longitude: 28.9784,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
       };
+    }
+    // Fallback to Istanbul with validated numbers
+    return {
+      latitude: 41.0082,
+      longitude: 28.9784,
+      latitudeDelta: 0.1,
+      longitudeDelta: 0.1,
+    };
+  }, [currentLocation]);
 
   const handleRegionChangeComplete = (region: Region) => {
     setCurrentRegion(region);
@@ -46,12 +69,29 @@ export default function CustomMapView({
 
   useEffect(() => {
     if (currentLocation && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      }, 500);
+      // CRITICAL: Validate coordinates before passing to native
+      const lat = Number(currentLocation.latitude);
+      const lng = Number(currentLocation.longitude);
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        if (__DEV__) {
+          console.warn('MapView: Invalid currentLocation coordinates:', currentLocation);
+        }
+        return;
+      }
+      
+      try {
+        mapRef.current.animateToRegion({
+          latitude: lat,
+          longitude: lng,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }, 500);
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('MapView: animateToRegion error:', error);
+        }
+      }
     }
   }, [currentLocation]);
 
@@ -79,12 +119,16 @@ export default function CustomMapView({
           flipY={false}
         />
         
-        {/* User location marker */}
-        {currentLocation && (
+        {/* User location marker - with validation */}
+        {currentLocation && 
+         typeof currentLocation.latitude === 'number' && 
+         typeof currentLocation.longitude === 'number' &&
+         !isNaN(currentLocation.latitude) &&
+         !isNaN(currentLocation.longitude) && (
           <Marker
             coordinate={{
-              latitude: currentLocation.latitude,
-              longitude: currentLocation.longitude,
+              latitude: Number(currentLocation.latitude),
+              longitude: Number(currentLocation.longitude),
             }}
             title="Your Location"
             pinColor="#007AFF"
@@ -93,49 +137,99 @@ export default function CustomMapView({
         )}
         
         {/* Place markers with activity-based colors and sizes */}
-        {places.map((place) => {
-          // Determine marker color and size based on activity
-          let pinColor = '#FF3B30'; // Default red
-          let markerSize = 1.0; // Default size
-
-          // Activity-based coloring
-          if (place.isTrending || (place.visitCountLast7Days && place.visitCountLast7Days > 10)) {
-            pinColor = '#FF3B30'; // Red for trending/high activity
-            markerSize = 1.2; // Larger for trending
-          } else if (place.averageRating && place.averageRating >= 4.5) {
-            pinColor = '#34C759'; // Green for highly rated
-            markerSize = 1.1;
-          } else if (place.reviewCount && place.reviewCount > 10) {
-            pinColor = '#FF9500'; // Orange for popular
-            markerSize = 1.1;
-          } else if (place.averageRating && place.averageRating >= 4.0) {
-            pinColor = '#007AFF'; // Blue for good
+        {React.useMemo(() => {
+          const validPlaces = places.filter((place) => {
+            // CRITICAL VALIDATION: Filter out invalid places BEFORE mapping
+            if (!place || !place.id) {
+              if (__DEV__) {
+                console.warn('[MapView] Skipping place without id:', place);
+              }
+              return false;
+            }
+            
+            // CRITICAL: Ensure latitude and longitude are valid numbers
+            const lat = Number(place.latitude);
+            const lng = Number(place.longitude);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+              if (__DEV__) {
+                console.warn('[MapView] Skipping place with invalid coordinates:', {
+                  id: place.id,
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                });
+              }
+              return false;
+            }
+            
+            // Validate coordinate ranges
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+              if (__DEV__) {
+                console.warn('[MapView] Skipping place with out-of-range coordinates:', {
+                  id: place.id,
+                  latitude: lat,
+                  longitude: lng,
+                });
+              }
+              return false;
+            }
+            
+            return true;
+          });
+          
+          if (__DEV__) {
+            console.log('[MapView] Valid places count:', validPlaces.length, 'out of', places.length);
           }
+          
+          return validPlaces.map((place) => {
+            // SAFE: At this point, place is guaranteed to have valid coordinates
+            const lat = Number(place.latitude);
+            const lng = Number(place.longitude);
 
-          // Build description with activity info
-          let description = place.address || '';
-          if (place.visitCountLast7Days && place.visitCountLast7Days > 0) {
-            description += ` • ${place.visitCountLast7Days} visits this week`;
-          }
-          if (place.isTrending) {
-            description += ' • Trending';
-          }
+            // Determine marker color and size based on activity
+            let pinColor = '#FF3B30'; // Default red
+            let markerSize = 1.0; // Default size
 
-          return (
-            <Marker
-              key={place.id}
-              coordinate={{
-                latitude: place.latitude,
-                longitude: place.longitude,
-              }}
-              title={place.name}
-              description={description}
-              onPress={() => onMarkerPress(place)}
-              pinColor={pinColor}
+            // Activity-based coloring
+            if (place.isTrending || (place.visitCountLast7Days && place.visitCountLast7Days > 10)) {
+              pinColor = '#FF3B30'; // Red for trending/high activity
+              markerSize = 1.2; // Larger for trending
+            } else if (place.averageRating && place.averageRating >= 4.5) {
+              pinColor = '#34C759'; // Green for highly rated
+              markerSize = 1.1;
+            } else if (place.reviewCount && place.reviewCount > 10) {
+              pinColor = '#FF9500'; // Orange for popular
+              markerSize = 1.1;
+            } else if (place.averageRating && place.averageRating >= 4.0) {
+              pinColor = '#007AFF'; // Blue for good
+            }
+
+            // Build description with activity info
+            let description = place.address || '';
+            if (place.visitCountLast7Days && place.visitCountLast7Days > 0) {
+              description += ` • ${place.visitCountLast7Days} visits this week`;
+            }
+            if (place.isTrending) {
+              description += ' • Trending';
+            }
+
+            // CRITICAL: Use validated numeric coordinates
+            return (
+              <Marker
+                key={String(place.id)}
+                coordinate={{
+                  latitude: lat,
+                  longitude: lng,
+                }}
+                title={place.name || 'Place'}
+                description={description || ''}
+                onPress={() => onMarkerPress(place)}
+                pinColor={pinColor}
               anchor={{ x: 0.5, y: 1 }}
             />
           );
-        })}
+          });
+        }, [places, onMarkerPress])}
       </MapView>
     </View>
   );

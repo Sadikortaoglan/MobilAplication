@@ -13,27 +13,14 @@ import { Platform } from 'react-native';
 // elevation: 3,
 // ============================================================================
 
-// Small shadow (kept for backward compatibility)
-export const shadowSm = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.05,
-  shadowRadius: 2,
-  elevation: 2,
-};
-
-// Large shadow - REMOVED: Use inline shadow properties instead
-// shadowLg export removed to prevent runtime errors
-// Use inline: shadowColor, shadowOffset, shadowOpacity, shadowRadius, elevation
-
-// Extra large shadow (kept for backward compatibility)
-export const shadowXl = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.2,
-  shadowRadius: 16,
-  elevation: 8,
-};
+// Shadow exports REMOVED - Use inline shadow properties in StyleSheet.create()
+// DO NOT export shadow objects - they cause native bridge serialization failures
+// Use inline properties:
+// shadowColor: '#000',
+// shadowOffset: { width: 0, height: 1 },
+// shadowOpacity: 0.05,
+// shadowRadius: 2,
+// elevation: 2,
 
 export const colors = {
   // Primary - Modern blue

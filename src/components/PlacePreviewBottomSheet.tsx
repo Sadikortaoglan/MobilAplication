@@ -47,43 +47,60 @@ export default function PlacePreviewBottomSheet({
     }
   }, [onClose]);
 
-  // Open/close sheet based on visibility
-  useEffect(() => {
-    if (!bottomSheetRef.current) return;
+  // RUNTIME GUARD: Never render BottomSheet without valid place data
+  if (!place || !place.id) {
+    return null;
+  }
 
-    // Use setTimeout to ensure native module is ready
-    const timeoutId = setTimeout(() => {
-      if (!bottomSheetRef.current) return;
-
-      if (visible && place) {
-        // Open to specified snap point - use validated index
-        try {
-          bottomSheetRef.current.snapToIndex(validSnapToIndex);
-        } catch (error) {
-          console.warn('BottomSheet snapToIndex error:', error);
-        }
-      } else {
-        // Close sheet
-        try {
-          bottomSheetRef.current.close();
-        } catch (error) {
-          console.warn('BottomSheet close error:', error);
-        }
-      }
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [visible, place, validSnapToIndex]);
-
-  if (!place) return null;
+  // RUNTIME GUARD: Ensure place has required fields
+  if (typeof place.latitude !== 'number' || typeof place.longitude !== 'number') {
+    return null;
+  }
 
   const coverPhoto = place.photos?.find((photo) => photo.isCover) || place.photos?.[0];
   const showTrending = place.isTrending || (place.visitCountLast7Days && place.visitCountLast7Days > 10);
 
+  // Calculate safe index - ensure it's always valid for native module
+  // CRITICAL: BottomSheet index cannot be -1, must be 0, 1, or 2
+  const safeIndex = useMemo(() => {
+    if (!visible || !place) return 0; // Use 0 (collapsed) instead of -1
+    return validSnapToIndex;
+  }, [visible, place, validSnapToIndex]);
+
+  // Open/close sheet based on visibility - ONLY after guards pass
+  useEffect(() => {
+    if (!bottomSheetRef.current || !place) return;
+
+    // Use longer timeout to ensure native module is fully ready
+    const timeoutId = setTimeout(() => {
+      if (!bottomSheetRef.current || !place) return;
+
+      if (visible) {
+        // Open to specified snap point - use validated index
+        try {
+          // CRITICAL: Ensure index is always valid [0, 2]
+          const targetIndex = Math.max(0, Math.min(2, validSnapToIndex));
+          bottomSheetRef.current.snapToIndex(targetIndex);
+        } catch (error) {
+          console.warn('BottomSheet snapToIndex error:', error);
+        }
+      } else {
+        // Close sheet by snapping to index 0 (collapsed) instead of close()
+        try {
+          bottomSheetRef.current.snapToIndex(0);
+        } catch (error) {
+          console.warn('BottomSheet close error:', error);
+        }
+      }
+    }, 300); // Increased timeout for native module initialization
+
+    return () => clearTimeout(timeoutId);
+  }, [visible, place, validSnapToIndex]);
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
-      index={visible ? validSnapToIndex : -1}
+      index={safeIndex}
       snapPoints={snapPoints}
       onChange={handleSheetChanges}
       enablePanDownToClose={true}
@@ -93,6 +110,7 @@ export default function PlacePreviewBottomSheet({
       enableDynamicSizing={false}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
     >
         <BottomSheetScrollView
           style={styles.scrollView}
@@ -101,7 +119,7 @@ export default function PlacePreviewBottomSheet({
         >
           {/* Header with image */}
           <View style={styles.header}>
-            {coverPhoto && (
+            {coverPhoto && coverPhoto.url && typeof coverPhoto.url === 'string' && coverPhoto.url.length > 0 && (
               <Image source={{ uri: coverPhoto.url }} style={styles.headerImage} resizeMode="cover" />
             )}
             <View style={styles.headerOverlay}>
@@ -120,10 +138,10 @@ export default function PlacePreviewBottomSheet({
           {/* Content */}
           <View style={styles.content}>
             <Text style={styles.name} numberOfLines={2}>
-              {place.name}
+              {place.name || 'Unnamed Place'}
             </Text>
             <Text style={styles.address} numberOfLines={1}>
-              {place.address}
+              {place.address || 'Address not available'}
             </Text>
 
             {place.averageRating !== undefined && (
